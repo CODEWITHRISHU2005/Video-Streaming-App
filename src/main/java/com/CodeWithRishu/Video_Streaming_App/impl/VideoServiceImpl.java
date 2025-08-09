@@ -8,15 +8,21 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -35,8 +41,6 @@ public class VideoServiceImpl implements VideoService {
 
     @PostConstruct
     public void init() {
-        // The FileStorageService now handles creating the upload directory.
-        // We only need to ensure the HLS directory exists.
         try {
             Files.createDirectories(Paths.get(hslDir));
             logger.info("HLS directory verified/created at: {}", hslDir);
@@ -66,7 +70,7 @@ public class VideoServiceImpl implements VideoService {
             return savedVideo;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error while saving video and thumbnail", e);
             throw new RuntimeException("Error while saving video and thumbnail", e);
         }
     }
@@ -87,6 +91,7 @@ public class VideoServiceImpl implements VideoService {
     }
 
     @Override
+    @Async
     public void processVideo(String videoId) {
 
         Video video = this.get(videoId);
@@ -120,5 +125,46 @@ public class VideoServiceImpl implements VideoService {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Video processing was interrupted", e);
         }
+    }
+
+    // ─── Resource Loading Implementation ───────────────────────────────────────────
+
+    private Resource getResourceFromVideo(String videoId, Function<Video, String> pathExtractor, String pathMissingError, String fileMissingError) throws FileNotFoundException {
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new FileNotFoundException("Video not found with id: " + videoId));
+
+        String filePath = pathExtractor.apply(video);
+        if (!StringUtils.hasText(filePath)) {
+            throw new FileNotFoundException(pathMissingError);
+        }
+
+        Path resourcePath = Paths.get(uploadDir).resolve(filePath);
+        Resource resource = new FileSystemResource(resourcePath);
+
+        if (!resource.exists() || !resource.isReadable()) {
+            throw new FileNotFoundException(fileMissingError);
+        }
+        return resource;
+    }
+
+    @Override
+    public Resource getThumbnailResource(String videoId) throws FileNotFoundException {
+        return getResourceFromVideo(videoId, Video::getThumbnailUrl, "Thumbnail URL is not set for videoId: " + videoId, "Thumbnail not found or is not readable for videoId: " + videoId);
+    }
+
+    @Override
+    public Resource getVideoResource(String videoId) throws FileNotFoundException {
+        return getResourceFromVideo(videoId, Video::getFilePath, "Video file path is not set for videoId: " + videoId, "Video file not found or is not readable for videoId: " + videoId);
+    }
+
+    @Override
+    public Resource getHlsResource(String videoId, String fileName) throws FileNotFoundException {
+        Path hlsPath = Paths.get(hslDir, videoId, fileName);
+        Resource resource = new FileSystemResource(hlsPath);
+
+        if (!resource.exists() || !resource.isReadable()) {
+            throw new FileNotFoundException("HLS resource not found or is not readable: " + fileName + " for videoId: " + videoId);
+        }
+        return resource;
     }
 }

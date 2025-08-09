@@ -4,6 +4,7 @@ import com.CodeWithRishu.Video_Streaming_App.dto.CustomMessage;
 import com.CodeWithRishu.Video_Streaming_App.dto.VideoMetaDataDto;
 import com.CodeWithRishu.Video_Streaming_App.entity.Video;
 import com.CodeWithRishu.Video_Streaming_App.service.VideoService;
+import com.CodeWithRishu.Video_Streaming_App.utils.Serialization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,9 +16,11 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 @RestController
@@ -27,12 +30,6 @@ public class VideoController {
 
     private static final Logger logger = LoggerFactory.getLogger(VideoController.class);
     private static final long CHUNK_SIZE = 1024L * 1024L * 2L; // 2 MB
-
-    @Value("${file.upload-dir}")
-    private String uploadDir;
-
-    @Value("${file.video.hsl-dir}")
-    private String hlsDir;
 
     private final VideoService videoService;
 
@@ -57,7 +54,8 @@ public class VideoController {
 
         Video saved = videoService.save(video, videoFile, thumbnailFile);
         if (saved != null) {
-            return ResponseEntity.ok(saved);
+            VideoMetaDataDto dto = Serialization.mapVideoToDto(saved);
+            return ResponseEntity.status(HttpStatus.CREATED).body(dto);
         }
 
         logger.error("Failed to save video with title: {}", title);
@@ -70,10 +68,12 @@ public class VideoController {
 
     // ─── List All Videos ───────────────────────────────────────────────────────────
     @GetMapping
-    public ResponseEntity<List<Video>> getAllVideos() {
+    public ResponseEntity<List<VideoMetaDataDto>> getAllVideos() {
         logger.info("Fetching all videos");
-        List<Video> list = videoService.getAll();
-        return ResponseEntity.ok(list);
+        List<VideoMetaDataDto> dtoList = videoService.getAll().stream()
+                .map(Serialization::mapVideoToDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(dtoList);
     }
 
     // ─── Video Metadata ────────────────────────────────────────────────────────────
@@ -85,35 +85,23 @@ public class VideoController {
             return ResponseEntity.notFound().build();
         }
 
-        VideoMetaDataDto dto = new VideoMetaDataDto();
-        dto.setId(video.getVideoId());
-        dto.setTitle(video.getTitle());
-        dto.setDescription(video.getDescription());
-        dto.setContentType(video.getContentType());
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok(Serialization.mapVideoToDto(video));
     }
 
     // ─── Thumbnail Download ────────────────────────────────────────────────────────
     @GetMapping("/thumbnail/{videoId}")
     public ResponseEntity<Resource> getThumbnail(@PathVariable String videoId) {
         logger.info("Fetching thumbnail for videoId: {}", videoId);
-        Video video = videoService.get(videoId);
-        if (video == null || !StringUtils.hasText(video.getThumbnailUrl())) {
-            return ResponseEntity.notFound().build();
-        }
-
-        Path thumbnailPath = Paths.get(uploadDir).resolve(video.getThumbnailUrl());
-        Resource resource = new FileSystemResource(thumbnailPath);
-        if (!resource.exists() || !resource.isReadable()) {
-            logger.warn("Thumbnail not found or unreadable at: {}", thumbnailPath);
-            return ResponseEntity.notFound().build();
-        }
-
         try {
-            String contentType = Files.probeContentType(thumbnailPath);
+            // The service is now responsible for finding the file and creating the Resource
+            Resource resource = videoService.getThumbnailResource(videoId);
+            String contentType = Files.probeContentType(resource.getFile().toPath());
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .body(resource);
+        } catch (FileNotFoundException e) {
+            logger.warn("Thumbnail not found for videoId: {}", videoId, e);
+            return ResponseEntity.notFound().build();
         } catch (IOException ex) {
             logger.error("Error determining thumbnail content type", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -127,26 +115,19 @@ public class VideoController {
             @RequestHeader HttpHeaders headers
     ) {
         logger.info("Streaming video for videoId: {}", videoId);
-        Video video = videoService.get(videoId);
-        if (video == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        Path videoPath = Paths.get(uploadDir).resolve(video.getFilePath());
-        Resource videoResource = new FileSystemResource(videoPath);
-        if (!videoResource.exists()) {
-            logger.error("Video file not found: {}", videoPath);
-            return ResponseEntity.notFound().build();
-        }
-
         try {
+            // The service is now responsible for finding the file and creating the Resource
+            Resource videoResource = videoService.getVideoResource(videoId);
             ResourceRegion region = resourceRegion(videoResource, headers);
-            MediaType mediaType = MediaTypeFactory.getMediaType((Resource) videoPath)
+            MediaType mediaType = MediaTypeFactory.getMediaType(videoResource)
                     .orElse(MediaType.APPLICATION_OCTET_STREAM);
 
             return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
                     .contentType(mediaType)
                     .body(region);
+        } catch (FileNotFoundException e) {
+            logger.warn("Video file not found for videoId: {}", videoId, e);
+            return ResponseEntity.notFound().build();
         } catch (IOException e) {
             logger.error("Error streaming video", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -173,16 +154,15 @@ public class VideoController {
     @GetMapping(path = "/{videoId}/master.m3u8", produces = "application/vnd.apple.mpegurl")
     public ResponseEntity<Resource> serveMasterPlaylist(@PathVariable String videoId) {
         logger.debug("Serving HLS master playlist for videoId: {}", videoId);
-        Path playlist = Paths.get(hlsDir, videoId, "master.m3u8");
-        Resource resource = new FileSystemResource(playlist);
-
-        if (!resource.exists()) {
+        try {
+            Resource resource = videoService.getHlsResource(videoId, "master.m3u8");
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType("application/vnd.apple.mpegurl"))
+                    .body(resource);
+        } catch (FileNotFoundException e) {
+            logger.warn("HLS master playlist not found for videoId: {}", videoId, e);
             return ResponseEntity.notFound().build();
         }
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType("application/vnd.apple.mpegurl"))
-                .body(resource);
     }
 
     // ─── HLS Segment ───────────────────────────────────────────────────────────────
@@ -192,20 +172,17 @@ public class VideoController {
             @PathVariable String segmentName
     ) {
         logger.debug("Serving HLS segment {} for videoId: {}", segmentName, videoId);
-        Path segmentPath = Paths.get(hlsDir, videoId, segmentName);
-        Resource resource = new FileSystemResource(segmentPath);
-
-        if (!resource.exists()) {
-            return ResponseEntity.notFound().build();
-        }
-
         try {
+            Resource resource = videoService.getHlsResource(videoId, segmentName);
             long len = resource.contentLength();
             return ResponseEntity.ok()
                     .header(HttpHeaders.ACCEPT_RANGES, "bytes")
                     .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(len))
                     .contentType(MediaType.parseMediaType("video/MP2T"))
                     .body(resource);
+        } catch (FileNotFoundException e) {
+            logger.warn("HLS segment {} not found for videoId: {}", segmentName, videoId, e);
+            return ResponseEntity.notFound().build();
         } catch (IOException e) {
             logger.error("Error serving HLS segment", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
