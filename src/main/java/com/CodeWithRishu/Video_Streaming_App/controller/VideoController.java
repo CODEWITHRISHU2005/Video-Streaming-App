@@ -7,21 +7,18 @@ import com.CodeWithRishu.Video_Streaming_App.service.VideoService;
 import com.CodeWithRishu.Video_Streaming_App.utils.Serialization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.*;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.http.*;
-import org.springframework.http.MediaTypeFactory;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -134,22 +131,6 @@ public class VideoController {
         }
     }
 
-    private ResourceRegion resourceRegion(Resource video, HttpHeaders headers) throws IOException {
-        long contentLength = video.contentLength();
-        long start = 0;
-        long length = Math.min(CHUNK_SIZE, contentLength);
-
-        List<HttpRange> ranges = headers.getRange();
-        if (!ranges.isEmpty()) {
-            HttpRange range = ranges.get(0);
-            start = range.getRangeStart(contentLength);
-            long end = range.getRangeEnd(contentLength);
-            length = Math.min(CHUNK_SIZE, end - start + 1);
-        }
-
-        return new ResourceRegion(video, start, length);
-    }
-
     // ─── HLS Master Playlist ───────────────────────────────────────────────────────
     @GetMapping(path = "/{videoId}/master.m3u8", produces = "application/vnd.apple.mpegurl")
     public ResponseEntity<Resource> serveMasterPlaylist(@PathVariable String videoId) {
@@ -187,5 +168,21 @@ public class VideoController {
             logger.error("Error serving HLS segment", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    private ResourceRegion resourceRegion(Resource video, HttpHeaders headers) throws IOException {
+        long contentLength = video.contentLength();
+        long start = 0;
+        long length = Math.min(CHUNK_SIZE, contentLength);
+
+        List<HttpRange> ranges = headers.getRange();
+        if (!ranges.isEmpty()) {
+            HttpRange range = ranges.get(0);
+            start = range.getRangeStart(contentLength);
+            long end = range.getRangeEnd(contentLength);
+            length = Math.min(CHUNK_SIZE, end - start + 1);
+        }
+
+        return new ResourceRegion(video, start, length);
     }
 }

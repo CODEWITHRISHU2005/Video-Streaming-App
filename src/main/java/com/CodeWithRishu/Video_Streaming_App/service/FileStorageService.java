@@ -27,7 +27,6 @@ public class FileStorageService {
     }
 
     public String storeFile(MultipartFile file) {
-        // Generate a unique file name to avoid conflicts
         String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
 
         try {

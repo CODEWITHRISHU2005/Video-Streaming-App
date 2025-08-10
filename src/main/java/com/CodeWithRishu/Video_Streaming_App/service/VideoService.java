@@ -8,25 +8,16 @@ import java.io.FileNotFoundException;
 import java.util.List;
 
 public interface VideoService {
-    //save video
+
     Video save(Video video, MultipartFile file, MultipartFile thumbnailFile);
 
-
-    // get video by id
     Video get(String videoId);
-
-
-    // get video by title
 
     Video getByTitle(String title);
 
     List<Video> getAll();
 
-
-    //video processing
     void processVideo(String videoId);
-
-    // ─── Resource Loading ───────────────────────────────────────────────────────────
 
     Resource getThumbnailResource(String videoId) throws FileNotFoundException;
 

@@ -8,10 +8,10 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,15 +56,12 @@ public class VideoServiceImpl implements VideoService {
             String videoFilename = fileStorageService.storeFile(videoFile);
             String thumbnailFilename = fileStorageService.storeFile(thumbnailFile);
 
-            // Update video metadata
             video.setContentType(videoFile.getContentType());
             video.setFilePath(videoFilename);
             video.setThumbnailUrl(thumbnailFilename);
 
-            // Save the metadata to the database
             Video savedVideo = videoRepository.save(video);
 
-            // Start the HLS conversion process
             processVideo(savedVideo.getVideoId());
 
             return savedVideo;
@@ -95,11 +92,10 @@ public class VideoServiceImpl implements VideoService {
     public void processVideo(String videoId) {
 
         Video video = this.get(videoId);
-        // Reconstruct the full path from the base directory and the stored filename
+
         Path videoPath = Paths.get(uploadDir, video.getFilePath());
 
         try {
-            // ffmpeg command
             Path outputPath = Paths.get(hslDir, videoId);
 
             Files.createDirectories(outputPath);
@@ -126,8 +122,6 @@ public class VideoServiceImpl implements VideoService {
             throw new RuntimeException("Video processing was interrupted", e);
         }
     }
-
-    // ─── Resource Loading Implementation ───────────────────────────────────────────
 
     private Resource getResourceFromVideo(String videoId, Function<Video, String> pathExtractor, String pathMissingError, String fileMissingError) throws FileNotFoundException {
         Video video = videoRepository.findById(videoId)
