@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: videostream-app
+    env: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon
+    plan: free
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: 8080
+      - key: DATASOURCE_URL
+        fromDatabase:
+          name: videostream-db
+          property: connectionString
+      - key: DATASOURCE_USERNAME
+        fromDatabase:
+          name: videostream-db
+          property: user
+      - key: DATASOURCE_PASSWORD
+        fromDatabase:
+          name: videostream-db
+          property: password
+
+  - type: redis
+    name: videostream-cache
+    ipAllowList: []
+    plan: free
+    region: oregon
+
+databases:
+  - name: videostream-db
+    plan: free
+    region: oregon
