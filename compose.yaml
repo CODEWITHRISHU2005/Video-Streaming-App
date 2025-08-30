@@ -17,6 +17,8 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - DATASOURCE_URL=jdbc:mysql://mysql:3306/VideoStream
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
       - DATASOURCE_USERNAME=VideoStream-MySQL
       - DATASOURCE_PASSWORD=RishabhGupta&2005@
       - PORT=${PORT:-8080}
@@ -43,9 +45,9 @@ services:
       - db-data:/var/lib/mysql
 
 volumes:
-    db-data:
-    uploads:
-    hsl:
+  db-data:
+  uploads:
+  hsl:
 
 networks:
   s-network:
