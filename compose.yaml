@@ -5,7 +5,7 @@ services:
     container_name: VideoStream-App
     image: videostream-app:latest
     ports:
-      - ${PORT:-8080}:8080
+      - 8080
     networks:
       - s-network
     depends_on:
