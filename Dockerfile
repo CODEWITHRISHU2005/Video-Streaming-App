@@ -12,9 +12,9 @@ COPY --chmod=0755 mvnw mvnw
 COPY .mvn/ .mvn/
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
-# Fixed cache mount syntax for Railway
-RUN --mount=type=bind,source=pom.xml,target=pom.xml \
-    --mount=type=cache,id=maven-cache,target=/root/.m2 ./mvnw dependency:go-offline -DskipTests
+# Copy pom.xml first for better layer caching
+COPY pom.xml .
+RUN ./mvnw dependency:go-offline -DskipTests
 
 ################################################################################
 
@@ -24,9 +24,8 @@ FROM deps as package
 WORKDIR /build
 
 COPY ./src src/
-RUN --mount=type=bind,source=pom.xml,target=pom.xml \
-    --mount=type=cache,id=maven-cache,target=/root/.m2 \
-    ./mvnw package -DskipTests && \
+COPY pom.xml .
+RUN ./mvnw package -DskipTests && \
     mv target/$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)-$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout).jar target/app.jar
 
 ################################################################################
