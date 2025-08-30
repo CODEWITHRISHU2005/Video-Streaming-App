@@ -16,10 +16,9 @@ services:
       - hsl:/app/videos_hsl
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - DATASOURCE_URL=jdbc:mysql://mysql:3306/VideoStream
-      - DATASOURCE_USERNAME=VideoStream-MySQL
-      - DATASOURCE_PASSWORD=RishabhGupta&2005@
-      - PORT=${PORT:-8080}
+      - DATASOURCE_URL=jdbc:mysql://mysql.railway.internal:3306/railway
+      - DATASOURCE_USERNAME=root
+      - DATASOURCE_PASSWORD=NlULkEmLoGSJACdHzctHvdyfYfRyBwPx
 
   mysql:
     image: mysql:latest
