@@ -13,12 +13,10 @@ services:
         condition: service_healthy
     volumes:
       - uploads:/app/uploads
-      - hsl:/app/
+      - hsl:/app/videos_hsl
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - DATASOURCE_URL=jdbc:mysql://mysql:3306/VideoStream
-      - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
       - DATASOURCE_USERNAME=VideoStream-MySQL
       - DATASOURCE_PASSWORD=RishabhGupta&2005@
       - PORT=${PORT:-8080}
