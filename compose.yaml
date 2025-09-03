@@ -8,38 +8,38 @@ services:
       - 8080
     networks:
       - s-network
-    depends_on:
-      mysql:
-        condition: service_healthy
+#    depends_on:
+#      mysql:
+#        condition: service_healthy
     volumes:
       - uploads:/app/uploads
       - hsl:/app/videos_hsl
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - DATASOURCE_URL=jdbc:mysql://mysql.railway.internal:3306/railway
+      - DATASOURCE_URL=jdbc:mysql://root:NlULkEmLoGSJACdHzctHvdyfYfRyBwPx@shinkansen.proxy.rlwy.net:51999/railway
       - DATASOURCE_USERNAME=root
       - DATASOURCE_PASSWORD=NlULkEmLoGSJACdHzctHvdyfYfRyBwPx
 
-  mysql:
-    image: mysql:latest
-    container_name: VideoStream-MySQL
-    environment:
-      MYSQL_ROOT_PASSWORD: "RishabhGupta&2005@"
-      MYSQL_DATABASE: VideoStream
-      MYSQL_USER: VideoStream-MySQL
-      MYSQL_PASSWORD: "RishabhGupta&2005@"
-    ports:
-      - "3307:3306"
-    networks:
-      - s-network
-    healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-pRishabhGupta&2005@" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    volumes:
-      - db-data:/var/lib/mysql
+#  mysql:
+#    image: mysql:latest
+#    container_name: VideoStream-MySQL
+#    environment:
+#      MYSQL_ROOT_PASSWORD: "RishabhGupta&2005@"
+#      MYSQL_DATABASE: VideoStream
+#      MYSQL_USER: VideoStream-MySQL
+#      MYSQL_PASSWORD: "RishabhGupta&2005@"
+#    ports:
+#      - "3307:3306"
+#    networks:
+#      - s-network
+#    healthcheck:
+#      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-pRishabhGupta&2005@" ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#      start_period: 30s
+#    volumes:
+#      - db-data:/var/lib/mysql
 
 volumes:
   db-data:
