@@ -43,7 +43,13 @@ RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/e
 # runtime dependencies for the application.
 FROM eclipse-temurin:21-jre-jammy AS final
 
-# Create a non-privileged user first
+# Install FFmpeg FIRST (as root user)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create a non-privileged user
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -72,7 +78,6 @@ COPY --from=extract --chown=appuser:appuser build/target/extracted/snapshot-depe
 COPY --from=extract --chown=appuser:appuser build/target/extracted/application/ ./
 
 ENV PORT=8080
-ENV SPRING_PROFILES_ACTIVE=prod
 
 EXPOSE ${PORT}
 

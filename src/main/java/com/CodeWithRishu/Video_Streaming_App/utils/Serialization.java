@@ -10,6 +10,7 @@ public interface Serialization {
         dto.setTitle(video.getTitle());
         dto.setDescription(video.getDescription());
         dto.setContentType(video.getContentType());
+        dto.setDuration(video.getDuration());
         return dto;
     }
 }

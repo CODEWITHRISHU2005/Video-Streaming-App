@@ -14,4 +14,5 @@ public class VideoMetaDataDto {
     private String title;
     private String description;
     private String contentType;
+    private double duration;
 }

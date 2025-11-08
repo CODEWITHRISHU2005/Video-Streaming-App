@@ -6,7 +6,10 @@ import com.CodeWithRishu.Video_Streaming_App.service.FileStorageService;
 import com.CodeWithRishu.Video_Streaming_App.service.VideoService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
@@ -25,10 +28,9 @@ import java.util.List;
 import java.util.function.Function;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class VideoServiceImpl implements VideoService {
-
-    private static final Logger logger = LoggerFactory.getLogger(VideoServiceImpl.class);
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -43,9 +45,9 @@ public class VideoServiceImpl implements VideoService {
     public void init() {
         try {
             Files.createDirectories(Paths.get(hslDir));
-            logger.info("HLS directory verified/created at: {}", hslDir);
+            log.info("HLS directory verified/created at: {}", hslDir);
         } catch (IOException e) {
-            logger.error("Could not create HLS directory!", e);
+            log.error("Could not create HLS directory!", e);
             throw new RuntimeException("Could not create HLS directory", e);
         }
     }
@@ -60,6 +62,11 @@ public class VideoServiceImpl implements VideoService {
             video.setFilePath(videoFilename);
             video.setThumbnailUrl(thumbnailFilename);
 
+            // Get video duration
+            Path videoPath = Paths.get(uploadDir, videoFilename);
+            double duration = getVideoDuration(videoPath);
+            video.setDuration(duration);
+
             Video savedVideo = videoRepository.save(video);
 
             processVideo(savedVideo.getVideoId());
@@ -67,9 +74,31 @@ public class VideoServiceImpl implements VideoService {
             return savedVideo;
 
         } catch (Exception e) {
-            logger.error("Error while saving video and thumbnail", e);
+            log.error("Error while saving video and thumbnail", e);
             throw new RuntimeException("Error while saving video and thumbnail", e);
         }
+    }
+
+    private double getVideoDuration(Path videoPath) {
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                    "ffprobe",
+                    "-v", "error",
+                    "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    videoPath.toString()
+            );
+            Process process = processBuilder.start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line = reader.readLine();
+            process.waitFor();
+            if (line != null) {
+                return Double.parseDouble(line);
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("Error getting video duration", e);
+        }
+        return 0.0;
     }
 
     @Override
@@ -92,32 +121,67 @@ public class VideoServiceImpl implements VideoService {
     public void processVideo(String videoId) {
 
         Video video = this.get(videoId);
-
         Path videoPath = Paths.get(uploadDir, video.getFilePath());
 
         try {
             Path outputPath = Paths.get(hslDir, videoId);
-
             Files.createDirectories(outputPath);
 
-            String ffmpegCmd = String.format("ffmpeg -i \"%s\" -c:v libx264 -c:a aac -strict -2 -f hls -hls_time 10 -hls_list_size 0 -hls_segment_filename \"%s\\segment_%%3d.ts\" \"%s\\master.m3u8\"", videoPath, outputPath, outputPath);
+            String segmentPattern = outputPath.resolve("segment_%3d.ts").toString();
+            String masterPlaylist = outputPath.resolve("master.m3u8").toString();
 
-            logger.info("Executing FFmpeg command for videoId: {}", videoId);
-            ProcessBuilder processBuilder = new ProcessBuilder("cmd.exe", "/c", ffmpegCmd);
-            processBuilder.inheritIO();
+            log.info("Starting FFmpeg processing for videoId: {}", videoId);
+            log.info("Input file: {}", videoPath);
+            log.info("Output directory: {}", outputPath);
+
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                    "ffmpeg",
+                    "-i", videoPath.toString(),
+                    "-c:v", "libx264",
+                    "-c:a", "aac",
+                    "-strict", "-2",
+                    "-f", "hls",
+                    "-hls_time", "10",
+                    "-hls_list_size", "0",
+                    "-hls_segment_filename", segmentPattern,
+                    masterPlaylist
+            );
+
+            processBuilder.redirectErrorStream(true);
+
             Process process = processBuilder.start();
-            int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                logger.error("Video processing failed with exit code: {}", exitCode);
-                throw new RuntimeException("video processing failed!!");
+
+            // Capture and log FFmpeg output
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.info("FFmpeg output: {}", line);
+                }
             }
-            logger.info("Video processing completed successfully for videoId: {}", videoId);
+
+            int exitCode = process.waitFor();
+
+            log.info("FFmpeg process completed with exit code: {}", exitCode);
+
+            if (exitCode != 0) {
+                log.error("FFmpeg failed with exit code: {}", exitCode);
+                throw new RuntimeException("Video processing failed with exit code: " + exitCode);
+            }
+
+            // Verify files were created
+            if (!Files.exists(Paths.get(masterPlaylist))) {
+                log.error("master.m3u8 was not created at: {}", masterPlaylist);
+                throw new RuntimeException("FFmpeg did not create master.m3u8");
+            }
+
+            log.info("Video processing completed successfully for videoId: {}", videoId);
 
         } catch (IOException ex) {
-            logger.error("IOException during video processing for videoId: {}", videoId, ex);
-            throw new RuntimeException("Video processing fail!!");
+            log.error("IOException during video processing for videoId: {}", videoId, ex);
+            throw new RuntimeException("Video processing failed!", ex);
         } catch (InterruptedException e) {
-            logger.error("InterruptedException during video processing for videoId: {}", videoId, e);
+            log.error("InterruptedException during video processing for videoId: {}", videoId, e);
             Thread.currentThread().interrupt();
             throw new RuntimeException("Video processing was interrupted", e);
         }
