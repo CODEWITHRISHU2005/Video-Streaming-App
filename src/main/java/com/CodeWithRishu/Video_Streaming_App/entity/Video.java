@@ -29,4 +29,5 @@ public class Video {
     private String thumbnailUrl;
 
     private double duration;
+
 }

@@ -5,12 +5,12 @@ import com.CodeWithRishu.Video_Streaming_App.entity.Video;
 
 public interface Serialization {
     static VideoMetaDataDto mapVideoToDto(Video video) {
-        VideoMetaDataDto dto = new VideoMetaDataDto();
-        dto.setId(video.getVideoId());
-        dto.setTitle(video.getTitle());
-        dto.setDescription(video.getDescription());
-        dto.setContentType(video.getContentType());
-        dto.setDuration(video.getDuration());
-        return dto;
+        return new VideoMetaDataDto(
+                video.getVideoId(),
+                video.getTitle(),
+                video.getDescription(),
+                video.getContentType(),
+                video.getDuration()
+        );
     }
 }

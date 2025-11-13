@@ -7,8 +7,6 @@ import com.CodeWithRishu.Video_Streaming_App.service.VideoService;
 import com.CodeWithRishu.Video_Streaming_App.utils.Serialization;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.http.*;
@@ -20,13 +18,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
 @Slf4j
 @RequestMapping("/api/v1/videos")
-@CrossOrigin(origins = "http://localhost:5173")
 public class VideoController {
     private static final long CHUNK_SIZE = 1024L * 1024L * 2L; // 2 MB
 

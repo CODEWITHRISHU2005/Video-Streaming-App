@@ -8,7 +8,6 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - DB_PASSWORD=${DB_PASSWORD}
     networks:
       - s-network
     depends_on:
