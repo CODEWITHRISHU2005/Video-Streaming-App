@@ -6,24 +6,35 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
+@Table(name = "ott_token")
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
-public class OttToken extends AuditEntity {
+public class OttToken {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private Long id;
 
-    @Column(name = "access_token", nullable = false, unique = true)
+    @Column(unique = true, nullable = false)
     private String token;
 
     @Column(nullable = false)
-    private Instant expiryDate;
+    private Instant createdAt;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
+    @Column(nullable = false)
+    private Instant expiresAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
-
 }

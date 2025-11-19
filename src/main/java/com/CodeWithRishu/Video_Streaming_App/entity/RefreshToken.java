@@ -4,27 +4,38 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
+@Table(name = "refresh_tokens", indexes = {
+        @Index(name = "idx_rt_jti", columnList = "jti", unique = true),
+        @Index(name = "idx_rt_user", columnList = "user_id")
+})
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class RefreshToken extends AuditEntity {
-
+public class RefreshToken {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-    @Column(name = "refresh_token", nullable = false, unique = true)
-    private String token;
+    @Column(nullable = false, unique = true, updatable = false, length = 64)
+    private String jti;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, updatable = false)
+    private User user;
+
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
 
     @Column(nullable = false)
-    private Instant expiryDate;
+    private Instant expiresAt;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
-    private User userInfo;
+    @Column(nullable = false)
+    private boolean revoked;
 
+    private String replacedByToken;
 }
