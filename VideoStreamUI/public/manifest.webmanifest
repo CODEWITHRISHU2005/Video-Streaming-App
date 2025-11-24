@@ -1,0 +1,17 @@
+{
+  "name": "StreamFlow",
+  "short_name": "StreamFlow",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1123",
+  "theme_color": "#1a1d3a",
+  "icons": [
+    {
+      "src": "/streamflow-icon.svg",
+      "sizes": "64x64 128x128 256x256 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+
