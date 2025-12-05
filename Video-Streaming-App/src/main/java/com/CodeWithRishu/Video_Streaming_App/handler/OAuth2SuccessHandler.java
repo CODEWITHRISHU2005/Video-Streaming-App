@@ -4,14 +4,12 @@ import com.CodeWithRishu.Video_Streaming_App.entity.Provider;
 import com.CodeWithRishu.Video_Streaming_App.entity.RefreshToken;
 import com.CodeWithRishu.Video_Streaming_App.entity.User;
 import com.CodeWithRishu.Video_Streaming_App.repository.RefreshTokenRepository;
-import com.CodeWithRishu.Video_Streaming_App.service.AuthService;
-import com.CodeWithRishu.Video_Streaming_App.service.CookieService;
+import com.CodeWithRishu.Video_Streaming_App.repository.UserRepository;
 import com.CodeWithRishu.Video_Streaming_App.service.JwtService;
-import jakarta.servlet.FilterChain;
+import com.CodeWithRishu.Video_Streaming_App.service.RefreshTokenService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,10 +18,10 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.util.UUID;
+import java.util.Set;
 
 @Component
 @Slf4j
@@ -31,59 +29,68 @@ import java.util.UUID;
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtService jwtService;
-    private final AuthService authService;
-    private final CookieService cookieService;
+    private final RefreshTokenService refreshTokenService;
+    private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Value("${app.auth.success-redirect}")
-    private String frontendRedirectURL;
+    private String frontendSuccessRedirectURL;
 
-    @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authentication) throws IOException, ServletException {
-        AuthenticationSuccessHandler.super.onAuthenticationSuccess(request, response, chain, authentication);
-    }
+    @Value("${app.auth.failure-redirect}")
+    private String frontendFailureRedirectURL;
 
     @Transactional
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        Authentication authentication) throws IOException, ServletException {
+
+        if (!(authentication instanceof OAuth2AuthenticationToken token)) {
+            log.error("Unsupported authentication type: {}", authentication.getClass());
+            response.sendRedirect(frontendFailureRedirectURL);
+            return;
+        }
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        String registrationId = "unknown";
-
-        if (authentication instanceof OAuth2AuthenticationToken token) {
-            registrationId = token.getAuthorizedClientRegistrationId();
-        }
+        String registrationId = token.getAuthorizedClientRegistrationId();
 
         log.debug("OAuth2 user attributes: {}", oAuth2User.getAttributes());
 
-        User user;
-        switch (registrationId) {
-            case "google" -> {
-                String googleId = oAuth2User.getAttributes().getOrDefault("sub", "").toString();
-                String email = oAuth2User.getAttributes().getOrDefault("email", "").toString(); // may be null if not granted
-                String name = oAuth2User.getAttributes().getOrDefault("name", "").toString();
-                String image = oAuth2User.getAttributes().getOrDefault("picture", "").toString();
-                user = authService.saveUserIfNotExit(googleId, email, name, image, Provider.GOOGLE);
-            }
-            default -> {
-                throw new RuntimeException("Unsupported provider: " + registrationId);
-            }
-        }
+        User user = processOAuth2User(oAuth2User, registrationId);
 
-        String jti = UUID.randomUUID().toString();
-
-        RefreshToken refreshToken = RefreshToken.builder()
-                .jti(jti)
-                .user(user)
-                .revoked(false)
-                .createdAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(60L * 60 * 24 * 15)) // 15 days
-                .build();
-
+        String accessToken = jwtService.generateToken(user);
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
         refreshTokenRepository.save(refreshToken);
 
-        String generatedRefreshToken = jwtService.generateRefreshToken(user, jti);
-        cookieService.attachRefreshCookie(response, generatedRefreshToken, 60 * 24 * 15); // 15 days
-        response.sendRedirect(frontendRedirectURL);
+        String redirectUrl = String.format("%s?accessToken=%s&refreshToken=%s",
+                frontendSuccessRedirectURL, accessToken, refreshToken.getToken());
+
+        log.info("Login/Signup success for {}",
+                user.getEmail());
+
+        response.sendRedirect(redirectUrl);
+    }
+
+    private User processOAuth2User(OAuth2User oAuth2User, String registrationId) {
+        String email = oAuth2User.getAttribute("email");
+        String name = oAuth2User.getAttribute("name");
+        String image = oAuth2User.getAttribute("picture");
+
+        return userRepository.findByEmail(email).map(existingUser -> {
+            if (existingUser.getName() == null) existingUser.setName(name);
+            if (existingUser.getProfileImage() == null) existingUser.setProfileImage(image.getBytes());
+            existingUser.setProvider(Provider.valueOf(registrationId.toUpperCase()));
+
+            return userRepository.save(existingUser);
+        }).orElseGet(() -> {
+            User newUser = User.builder()
+                    .email(email)
+                    .name(name)
+                    .provider(Provider.GOOGLE)
+                    .profileImage(image.getBytes())
+                    .build();
+            return userRepository.save(newUser);
+        });
     }
 
 }

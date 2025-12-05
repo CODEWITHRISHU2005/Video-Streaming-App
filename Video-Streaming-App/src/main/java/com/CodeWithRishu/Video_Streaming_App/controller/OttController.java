@@ -1,9 +1,7 @@
 package com.CodeWithRishu.Video_Streaming_App.controller;
 
-import com.CodeWithRishu.Video_Streaming_App.dto.response.OttResponse;
+import com.CodeWithRishu.Video_Streaming_App.dto.response.JwtResponse;
 import com.CodeWithRishu.Video_Streaming_App.service.OttService;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,14 +16,14 @@ public class OttController {
     private final OttService ottService;
 
     @PostMapping("/sent")
-    public ResponseEntity<String> sendOtt(@Valid @Email @RequestParam String email) {
+    public ResponseEntity<String> sendOtt(@RequestParam String email) {
         ottService.generateMagicLink(email);
         return ResponseEntity.ok("Magic link sent to your email. Please check your inbox.");
     }
 
     @PostMapping("/login")
-    public ResponseEntity<OttResponse> loginWithOtt(@RequestParam String token) {
-        OttResponse response = ottService.loginWithOttToken(token);
+    public ResponseEntity<JwtResponse> loginWithOtt(@RequestParam String token) {
+        JwtResponse response = ottService.loginWithOttToken(token);
         return ResponseEntity.ok(response);
     }
 

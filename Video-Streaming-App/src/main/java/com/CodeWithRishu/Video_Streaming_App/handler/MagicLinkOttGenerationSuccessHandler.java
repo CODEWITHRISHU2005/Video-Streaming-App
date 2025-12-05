@@ -61,7 +61,7 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
         try {
             var userDetails = userDetailsService.loadUserByUsername(username);
             if (userDetails instanceof CustomUserDetails customUser)
-                return customUser.getEmail();
+                return customUser.getUsername();
         } catch (Exception e) {
             log.error("Error retrieving email for username: {}", username, e);
             throw new RuntimeException("Could not retrieve user email", e);

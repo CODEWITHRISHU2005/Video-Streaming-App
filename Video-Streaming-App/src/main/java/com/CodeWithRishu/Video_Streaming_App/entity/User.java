@@ -7,8 +7,6 @@ import org.hibernate.annotations.DynamicInsert;
 import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -32,7 +30,8 @@ public class User {
 
     private String password;
 
-    private String image;
+    @Lob
+    private byte[] profileImage;
 
     @JsonIgnore
     private boolean enabled = true;
@@ -40,12 +39,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     @JsonIgnore
     private Provider provider = Provider.LOCAL;
-
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "user_roles",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id"))
-    private Set<Role> roles = new HashSet<>();
 
     @JsonIgnore
     private Instant createdAt = Instant.now();

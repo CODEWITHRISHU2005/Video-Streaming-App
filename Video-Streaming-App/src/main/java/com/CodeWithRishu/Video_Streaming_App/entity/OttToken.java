@@ -18,7 +18,7 @@ public class OttToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(name = "access_token", unique = true, nullable = false)
     private String token;
 
     @Column(nullable = false)
@@ -34,7 +34,7 @@ public class OttToken {
         }
     }
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @OneToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
     private User user;
 }

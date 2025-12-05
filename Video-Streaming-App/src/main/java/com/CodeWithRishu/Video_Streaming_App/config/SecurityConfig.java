@@ -18,31 +18,30 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
 import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private final UserDetailsService userDetailsService;
     private final CustomUserDetailsService customUserDetailsService;
-    private final MailSender mailSender;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final MailSender mailSender;
+
 
     public SecurityConfig(
-            CustomUserDetailsService customUserDetailsService,
+            UserDetailsService userDetailsService, CustomUserDetailsService customUserDetailsService,
             MailSender mailSender,
             @Lazy OAuth2SuccessHandler oAuth2SuccessHandler
     ) {
+        this.userDetailsService = userDetailsService;
         this.customUserDetailsService = customUserDetailsService;
         this.mailSender = mailSender;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
@@ -51,27 +50,33 @@ public class SecurityConfig {
     @Value("${app.auth.failure-redirect}")
     private String failureRedirectURL;
 
+    @Value("${app.auth.success-redirect}")
+    private String successRedirectURL;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/ott/**",
+                                "/api/otp/**",
+                                "/login/oauth2/code/google/**",
                                 "/swagger-ui/**",
-                                "/v3/api-docs").permitAll()
+                                "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authenticationProvider(authenticationProvider())
                 .oauth2Login(oauth2 ->
                         oauth2
+                                .loginPage("/login")
                                 .successHandler(oAuth2SuccessHandler)
                                 .failureHandler((req, resp, e) -> {
                                     resp.setStatus(401);
-                                    resp.sendRedirect(failureRedirectURL + "?error=" + e.getMessage());
+                                    resp.sendRedirect(failureRedirectURL);
                                 })
                 )
                 .logout(AbstractHttpConfigurer::disable)
@@ -108,7 +113,7 @@ public class SecurityConfig {
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
-        authenticationProvider.setUserDetailsService(customUserDetailsService);  // ✅ Fixed: Use your custom implementation
+        authenticationProvider.setUserDetailsService(userDetailsService);
         authenticationProvider.setPasswordEncoder(passwordEncoder());
         return authenticationProvider;
     }
@@ -123,20 +128,4 @@ public class SecurityConfig {
         return new MagicLinkOttGenerationSuccessHandler(customUserDetailsService, mailSender);
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origins}") String allowedOrigins
-    ) {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(allowedOrigins));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
-        configuration.setExposedHeaders(List.of("Authorization"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
 }

@@ -1,20 +1,15 @@
 package com.CodeWithRishu.Video_Streaming_App.dto.response;
 
-import com.CodeWithRishu.Video_Streaming_App.dto.UserMetaDataDto;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public record JwtResponse(
-        String accessToken,
-        String refreshToken,
-        long expiresIn,
-        String tokenType,
-        UserMetaDataDto user
-) {
-    public static JwtResponse bearer(String accessToken, String refreshToken, long expiresIn) {
-        return new JwtResponse(accessToken, refreshToken, expiresIn, "Bearer", null);
-    }
-
-    public static JwtResponse bearerWithUser(String accessToken, String refreshToken, long expiresIn, UserMetaDataDto user) {
-        return new JwtResponse(accessToken, refreshToken, expiresIn, "Bearer", user);
-    }
-
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class JwtResponse {
+    private String accessToken;
+    private String refreshToken;
 }

@@ -1,26 +1,16 @@
 package com.CodeWithRishu.Video_Streaming_App.service;
 
-import com.CodeWithRishu.Video_Streaming_App.dto.request.RefreshTokenRequest;
-import com.CodeWithRishu.Video_Streaming_App.dto.response.JwtResponse;
 import com.CodeWithRishu.Video_Streaming_App.entity.RefreshToken;
 import com.CodeWithRishu.Video_Streaming_App.entity.User;
 import com.CodeWithRishu.Video_Streaming_App.repository.RefreshTokenRepository;
 import com.CodeWithRishu.Video_Streaming_App.repository.UserRepository;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.CredentialsExpiredException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,150 +19,53 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    private static final String BEARER_PREFIX = "Bearer ";
-    private static final String CUSTOM_REFRESH_HEADER = "X-Refresh-Token";
-    private static final int REFRESH_TOKEN_EXPIRY_MINUTES = 60 * 24 * 15;
-    private static final long REFRESH_TOKEN_EXPIRY_SECONDS = 60L * 60 * 24 * 15;
-    private static final int ACCESS_TOKEN_EXPIRY_SECONDS = 900;
-
     private final RefreshTokenRepository refreshTokenRepository;
-    private final JwtService jwtService;
-    private final CookieService cookieService;
     private final UserRepository userRepository;
 
     @Transactional
-    public ResponseEntity<JwtResponse> createRefreshToken(RefreshTokenRequest body,
-                                                          HttpServletRequest request,
-                                                          HttpServletResponse response) {
-        String token = extractRefreshToken(body, request);
+    public RefreshToken createRefreshToken(String email) {
+        log.info("Creating refresh token for user: {}", email);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.warn("User not found: {}", email);
+                    return new UsernameNotFoundException("User not found");
+                });
 
-        if (!jwtService.isRefreshToken(token)) {
-            throw new BadCredentialsException("Invalid token type");
-        }
+        log.debug("Deleting old refresh token for user: {}", email);
+        refreshTokenRepository.deleteByUserInfo(user);
 
-        String jti = jwtService.getJti(token);
-        UUID userId = jwtService.getUserId(token);
+        refreshTokenRepository.flush();
 
-        RefreshToken storedToken = refreshTokenRepository.findByJti(jti)
-                .orElseThrow(() -> new BadCredentialsException("Refresh token not recognized"));
-
-        validateTokenStatus(storedToken);
-        validateTokenOwnership(storedToken, userId);
-
-        User user = storedToken.getUser();
-        String newJti = UUID.randomUUID().toString();
-
-        storedToken.setRevoked(true);
-        storedToken.setReplacedByToken(newJti);
-        refreshTokenRepository.save(storedToken);
-
-        Instant now = Instant.now();
-        RefreshToken newRefreshToken = RefreshToken.builder()
-                .jti(newJti)
-                .user(user)
-                .createdAt(now)
-                .expiresAt(now.plusSeconds(REFRESH_TOKEN_EXPIRY_SECONDS))
-                .revoked(false)
-                .build();
-        refreshTokenRepository.save(newRefreshToken);
-
-        String newAccessToken = jwtService.generateAccessToken(user);
-        String newRefreshTokenString = jwtService.generateRefreshToken(user, newJti);
-
-        cookieService.attachRefreshCookie(response, newRefreshTokenString, REFRESH_TOKEN_EXPIRY_MINUTES);
-        cookieService.addNoStoreHeaders(response);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + newAccessToken)
-                .body(JwtResponse.bearer(newAccessToken, newRefreshTokenString, ACCESS_TOKEN_EXPIRY_SECONDS));
-    }
-
-    @Transactional
-    public RefreshToken createRefreshTokenForOtt(String username) {
-        User user = userRepository.findByName(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        refreshTokenRepository.findByUser(user)
-                .ifPresent(refreshTokenRepository::delete);
-
-        Instant now = Instant.now();
         RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .jti(UUID.randomUUID().toString())
-                .revoked(false)
-                .replacedByToken(UUID.randomUUID().toString())
-                .createdAt(now)
-                .expiresAt(now.plusSeconds(REFRESH_TOKEN_EXPIRY_SECONDS))
+                .userInfo(user)
+                .token(UUID.randomUUID().toString())
+                .expiresAt(Instant.now().plusMillis(60000 * 60 * 24 * 15)) // 15 days expiry
                 .build();
 
-        return refreshTokenRepository.save(refreshToken);
+        RefreshToken savedToken = refreshTokenRepository.save(refreshToken);
+        log.info("Refresh token created for user: {}, token: {}", email, savedToken.getToken());
+        return savedToken;
     }
 
-    private String extractRefreshToken(RefreshTokenRequest body, HttpServletRequest request) {
-        return readRefreshTokenFromRequest(body, request)
-                .orElseThrow(() -> new BadCredentialsException("Refresh token missing"));
+    public Optional<RefreshToken> findByToken(String token) {
+        log.debug("Finding refresh token: {}", token);
+        return refreshTokenRepository.findByToken(token)
+                .map(this::verifyExpiration)
+                .or(() -> {
+                    log.warn("Refresh token not found or expired: {}", token);
+                    return Optional.empty();
+                });
     }
 
-    private void validateTokenStatus(RefreshToken token) {
-        if (token.isRevoked()) {
-            throw new CredentialsExpiredException("Refresh token has been revoked");
+    public RefreshToken verifyExpiration(RefreshToken token) {
+        log.debug("Verifying expiration for refresh token: {}", token.getToken());
+        if (token.getExpiresAt().compareTo(Instant.now()) < 0) {
+            log.warn("Refresh token expired: {}", token.getToken());
+            refreshTokenRepository.delete(token);
+            throw new RuntimeException(token.getToken() + " Refresh token was expired. Please make a new sign in request");
         }
-        if (token.getExpiresAt().isBefore(Instant.now())) {
-            throw new CredentialsExpiredException("Refresh token expired");
-        }
+        log.info("Refresh token is valid: {}", token.getToken());
+        return token;
     }
 
-    private void validateTokenOwnership(RefreshToken token, UUID userId) {
-        if (!token.getUser().getId().equals(userId)) {
-            throw new BadCredentialsException("Token subject mismatch");
-        }
-    }
-
-    private Optional<String> readRefreshTokenFromRequest(RefreshTokenRequest body, HttpServletRequest request) {
-        return readFromCookie(request)
-                .or(() -> readFromRequestBody(body))
-                .or(() -> readFromCustomHeader(request))
-                .or(() -> readFromAuthorizationHeader(request));
-    }
-
-    private Optional<String> readFromCookie(HttpServletRequest request) {
-        if (request.getCookies() == null) return Optional.empty();
-
-        return Arrays.stream(request.getCookies())
-                .filter(cookie -> cookieService.getRefreshCookieName().equals(cookie.getName()))
-                .map(Cookie::getValue)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
-    }
-
-    private Optional<String> readFromRequestBody(RefreshTokenRequest body) {
-        if (body == null || body.refreshToken() == null || body.refreshToken().isBlank()) {
-            return Optional.empty();
-        }
-        return Optional.of(body.refreshToken().trim());
-    }
-
-    private Optional<String> readFromCustomHeader(HttpServletRequest request) {
-        String headerValue = request.getHeader(CUSTOM_REFRESH_HEADER);
-        return headerValue != null && !headerValue.isBlank()
-                ? Optional.of(headerValue.trim())
-                : Optional.empty();
-    }
-
-    private Optional<String> readFromAuthorizationHeader(HttpServletRequest request) {
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-        if (authHeader == null || !authHeader.regionMatches(true, 0, BEARER_PREFIX, 0, 7)) {
-            return Optional.empty();
-        }
-
-        String candidate = authHeader.substring(BEARER_PREFIX.length()).trim();
-        if (candidate.isEmpty()) return Optional.empty();
-
-        try {
-            return jwtService.isRefreshToken(candidate) ? Optional.of(candidate) : Optional.empty();
-        } catch (Exception e) {
-            return Optional.empty();
-        }
-    }
 }
