@@ -199,7 +199,26 @@ export default function VideoPlayer({
       if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
         player.src({ src, type: 'application/vnd.apple.mpegurl' });
       } else if (Hls.isSupported()) {
-        const hls = new Hls(HLS_CONFIG);
+        // Check for auth token
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+          console.warn('VideoPlayer: No auth token found in localStorage. HLS playback might fail for protected content.');
+        } else {
+          // console.debug('VideoPlayer: Auth token found, configuring HLS...');
+        }
+
+        // Merge auth token into HLS config
+        const hlsConfigWithAuth = {
+          ...HLS_CONFIG,
+          xhrSetup: (xhr, url) => {
+             if (token) {
+               xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+             }
+          }
+        };
+
+        const hls = new Hls(hlsConfigWithAuth);
         hlsRef.current = hls;
 
         const onManifestParsed = () => {

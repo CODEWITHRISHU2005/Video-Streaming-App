@@ -78,11 +78,15 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         return userRepository.findByEmail(email).map(existingUser -> {
             if (existingUser.getName() == null) existingUser.setName(name);
-            if (existingUser.getProfileImage() == null) existingUser.setProfileImage(image.getBytes());
+            if (existingUser.getProfileImage() == null) {
+                assert image != null;
+                existingUser.setProfileImage(image.getBytes());
+            }
             existingUser.setProvider(Provider.valueOf(registrationId.toUpperCase()));
 
             return userRepository.save(existingUser);
         }).orElseGet(() -> {
+            assert image != null;
             User newUser = User.builder()
                     .email(email)
                     .name(name)

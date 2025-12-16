@@ -30,15 +30,20 @@ public class User {
 
     private String password;
 
+    private String phoneNumber;
+
+    @Lob
+    private String bio;
+
     @Lob
     private byte[] profileImage;
-
-    @JsonIgnore
-    private boolean enabled = true;
 
     @Enumerated(EnumType.STRING)
     @JsonIgnore
     private Provider provider = Provider.LOCAL;
+
+    @JsonIgnore
+    private boolean enabled = true;
 
     @JsonIgnore
     private Instant createdAt = Instant.now();

@@ -1,6 +1,6 @@
 // src/utils/mapVideoDetails.js
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080/api/v1/videos";
+const API_BASE = import.meta.env.VITE_API_BASE || "/api/videos";
 
 const buildStreamUrl = (details, id) => {
   return (
@@ -10,7 +10,7 @@ const buildStreamUrl = (details, id) => {
     details?.playback_url ||
     details?.videoUrl ||
     details?.video_url ||
-    `${API_BASE}/stream/range/${id}`
+    `${API_BASE}/stream/${id}`
   );
 };
 

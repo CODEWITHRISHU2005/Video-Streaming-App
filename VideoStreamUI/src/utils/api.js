@@ -1,12 +1,11 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1';
+const API_BASE_URL = '/api';
 
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -26,14 +25,52 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling and token refresh
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      toast.error('Session expired. Please login again.');
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Prevent infinite loops if the refresh token endpoint itself fails
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/refreshToken')) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          // call the refresh token endpoint directly using axios to avoid interceptors
+          // RefreshTokenRequest DTO expects: { token: "..." }
+          const response = await axios.post(`${API_BASE_URL}/auth/refreshToken`, {
+            token: refreshToken,
+          });
+
+          const { accessToken, refreshToken: newRefreshToken } = response.data;
+
+          localStorage.setItem('authToken', accessToken);
+          // If the backend returns a new refresh token, store it
+          if (newRefreshToken) {
+            localStorage.setItem('refreshToken', newRefreshToken);
+          }
+
+          // Update the header and retry the original request
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        // Refresh failed, clear tokens and redirect to login
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        toast.error('Session expired. Please login again.');
+        window.location.href = '/login'; // Or use a cleaner way to redirect if available
+      }
     }
+    
+    // If it's a 401 but we can't refresh (e.g. no token or already retried), just clean up
+    if (error.response?.status === 401 && !originalRequest._retry) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+    }
+
     return Promise.reject(error);
   }
 );
@@ -120,7 +157,7 @@ export const userAPI = {
   // Login
   login: async (credentials) => {
     try {
-      const response = await api.post('/auth/login', credentials);
+      const response = await api.post('/auth/signIn', credentials);
       return response.data;
     } catch (error) {
       throw error;
@@ -130,7 +167,7 @@ export const userAPI = {
   // Register
   register: async (userData) => {
     try {
-      const response = await api.post('/auth/register', userData);
+      const response = await api.post('/auth/signUp', userData);
       return response.data;
     } catch (error) {
       throw error;
@@ -138,9 +175,9 @@ export const userAPI = {
   },
 
   // Get user profile
-  getProfile: async () => {
+  getProfile: async (data) => {
     try {
-      const response = await api.get('/auth/profile');
+      const response = await api.get('/auth/profile', { params: data });
       return response.data;
     } catch (error) {
       throw error;
@@ -151,6 +188,16 @@ export const userAPI = {
   updateProfile: async (data) => {
     try {
       const response = await api.put('/auth/profile', data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Refresh Token
+  refreshToken: async (tokenRequest) => {
+    try {
+      const response = await api.post('/auth/refreshToken', tokenRequest);
       return response.data;
     } catch (error) {
       throw error;
@@ -234,6 +281,69 @@ export const commentAPI = {
       throw error;
     }
   },
+};
+
+// OTP API functions
+export const otpAPI = {
+  // Send OTP
+  send: async (data) => {
+    try {
+      // Expects OtpRequest { phone, email, ... }
+      const response = await api.post('/otp/send', data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Verify OTP (Standalone verification)
+  verify: async (data) => {
+    try {
+      const response = await api.post('/otp/verify', data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Resend OTP
+  resend: async (data) => {
+    try {
+      const response = await api.post('/otp/resend', data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// OTT (One Time Token) API functions
+export const ottAPI = {
+  // Send Magic Link
+  sendLink: async (email) => {
+    try {
+      // Expects query param: email
+      const response = await api.post('/ott/sent', null, {
+        params: { email }
+      });
+      return response.data; // Expects String response
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Login with OTT Token
+  login: async (token) => {
+    try {
+      // Expects query param: token, returns JwtResponse
+      const response = await api.post('/ott/login', null, {
+        params: { token }
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 };
 
 export default api; 

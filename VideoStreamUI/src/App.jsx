@@ -41,6 +41,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import WatchPage from "./pages/WatchPage";
 import LandingPage from "./pages/LandingPage";
 import VideosPage from "./pages/VideosPage";
+import ProfilePage from "./pages/ProfilePage";
 
 const NAV_ITEMS = [
   { name: "Home", href: "/home", icon: HomeIcon, category: "main" },
@@ -116,7 +117,7 @@ function AppContent() {
             <>
               {/* Sidebar */}
               <motion.aside
-                initial={isMobile ? { x: -280 } : { width: 90 }}
+                initial={isMobile ? { x: -280 } : { width: 120 }}
                 animate={isMobile ? { 
                   x: sidebarOpen ? 0 : -280,
                   transition: { 
@@ -126,7 +127,7 @@ function AppContent() {
                     mass: 0.8
                   }
                 } : {
-                  width: sidebarExpanded ? 220 : 90,
+                  width: sidebarExpanded ? 280 : 120,
                   transition: {
                     type: "spring",
                     damping: 30,
@@ -234,15 +235,15 @@ function AppContent() {
                       
                       {/* Log In / Sign Out */}
                       {isAuthenticated ? (
-                        <button
-                          onClick={logout}
+                        <Link
+                          to="/profile"
                           className={`flex items-center gap-3 px-3 py-3 rounded-lg text-[#e5e5e5] hover:bg-[#2a2d33] hover:text-[#ffffff] transition-all duration-200 w-full group overflow-hidden ${
                             !isMobile && !sidebarExpanded ? 'justify-center' : ''
                           }`}
-                          title={!isMobile && !sidebarExpanded ? 'Sign Out' : ''}
+                          title={!isMobile && !sidebarExpanded ? 'Profile' : ''}
                         >
                           <div className="flex-shrink-0 flex items-center justify-center w-6 h-6">
-                            <LoginIcon 
+                            <ProfileIcon
                               size={24} 
                               className="text-[#e5e5e5] group-hover:text-[#ffffff] transition-colors duration-200"
                             />
@@ -256,11 +257,11 @@ function AppContent() {
                                 transition={{ duration: 0.2, ease: "easeOut" }}
                                 className="text-sm font-normal"
                               >
-                                Sign Out
+                                Profile
                               </motion.span>
                             )}
                           </AnimatePresence>
-                        </button>
+                        </Link>
                       ) : (
                         <Link
                           to="/signin"
@@ -312,7 +313,7 @@ function AppContent() {
         {/* Main Content Area */}
         <motion.main
           animate={!isMobile ? {
-            marginLeft: sidebarExpanded ? 220 : 90,
+            marginLeft: sidebarExpanded ? 280 : 120,
             transition: {
               type: "spring",
               damping: 30,
@@ -333,7 +334,9 @@ function AppContent() {
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/signin" element={<SignInPage />} />
+            <Route path="/login" element={<SignInPage />} />
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/watch-later" element={<WatchLaterPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />

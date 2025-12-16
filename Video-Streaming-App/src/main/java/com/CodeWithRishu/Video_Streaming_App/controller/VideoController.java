@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,7 +23,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @Slf4j
-@RequestMapping("/api/v1/videos")
+@RequestMapping("/api/videos")
 public class VideoController {
     private static final long CHUNK_SIZE = 1024L * 1024L * 2L; // 2 MB
 
@@ -30,6 +31,7 @@ public class VideoController {
 
     // ─── Video & Thumbnail Upload ─────────────────────────────────────────────────
     @PostMapping
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<?> uploadVideo(
             @RequestParam("videoFile") MultipartFile videoFile,
             @RequestParam("thumbnailFile") MultipartFile thumbnailFile,
@@ -87,7 +89,6 @@ public class VideoController {
     public ResponseEntity<Resource> getThumbnail(@PathVariable String videoId) {
         log.info("Fetching thumbnail for videoId: {}", videoId);
         try {
-            // The service is now responsible for finding the file and creating the Resource
             Resource resource = videoService.getThumbnailResource(videoId);
             String contentType = Files.probeContentType(resource.getFile().toPath());
             return ResponseEntity.ok()
@@ -110,7 +111,6 @@ public class VideoController {
     ) {
         log.info("Streaming video for videoId: {}", videoId);
         try {
-            // The service is now responsible for finding the file and creating the Resource
             Resource videoResource = videoService.getVideoResource(videoId);
             ResourceRegion region = resourceRegion(videoResource, headers);
             MediaType mediaType = MediaTypeFactory.getMediaType(videoResource)
@@ -130,6 +130,7 @@ public class VideoController {
 
     // ─── HLS Master Playlist ───────────────────────────────────────────────────────
     @GetMapping(path = "/{videoId}/master.m3u8", produces = "application/vnd.apple.mpegurl")
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Resource> serveMasterPlaylist(@PathVariable String videoId) {
         log.debug("Serving HLS master playlist for videoId: {}", videoId);
         try {
@@ -182,4 +183,5 @@ public class VideoController {
 
         return new ResourceRegion(video, start, length);
     }
+
 }

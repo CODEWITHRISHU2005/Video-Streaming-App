@@ -61,7 +61,7 @@ public class OttService {
         log.info("Created new OTT token for user: {}", user.getName());
 
         String magicLink = UriComponentsBuilder.fromHttpUrl(appBaseUrl)
-                .path("/api/v1/ott/login")
+                .path("/api/ott/login")
                 .queryParam("token", tokenValue)
                 .toUriString();
 

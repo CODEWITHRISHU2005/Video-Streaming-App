@@ -10,7 +10,7 @@ import {
   Progress,
   Alert,
 } from "flowbite-react";
-import axios from "axios";
+import { videoAPI } from "../utils/api";
 import toast from "react-hot-toast";
 
 function VideoUpload() {
@@ -72,27 +72,15 @@ function VideoUpload() {
       let formData = new FormData();
       formData.append("title", videoMetaData.title);
       formData.append("description", videoMetaData.description);
-      formData.append("file", video);
-      formData.append("thumbnail", thumbnail); // Append thumbnail
+      formData.append("videoFile", video);
+      formData.append("thumbnailFile", thumbnail); // Append thumbnail
 
-      let response = await axios.post(
-        `http://localhost:8080/api/v1/videos`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          onUploadProgress: (progressEvent) => {
-            const progress = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setProgress(progress);
-          },
-        }
-      );
+      let response = await videoAPI.upload(formData, (progressPercentage) => {
+        setProgress(progressPercentage);
+      });
 
       setProgress(0);
-      setMessage("File uploaded " + response.data.videoId);
+      setMessage("File uploaded successfully");
       setUploading(false);
       toast.success("File uploaded successfully !!");
       resetForm();

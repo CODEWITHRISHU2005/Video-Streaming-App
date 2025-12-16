@@ -63,6 +63,8 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/ott/**",
                                 "/api/otp/**",
+                                "/api/videos/**",
+                                "/favicon.ico",
                                 "/login/oauth2/code/google/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**").permitAll()

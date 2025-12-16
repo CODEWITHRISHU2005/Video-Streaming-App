@@ -124,28 +124,28 @@ export const validateImageFile = (file) => {
 // Generate video thumbnail URL
 export const getVideoThumbnail = (videoId) => {
   if (videoId) {
-    return `http://localhost:8080/api/v1/videos/thumbnail/${videoId}`;
+    return `/api/videos/thumbnail/${videoId}`;
   }
 };
 
 // Get video stream URL - use range-based streaming for better support
 export const getVideoStreamUrl = (videoId) => {
-  return `http://localhost:8080/api/v1/videos/stream/range/${videoId}`;
+  return `/api/videos/stream/${videoId}`;
 };
 
 // Get direct video stream URL (fallback)
 export const getDirectVideoUrl = (videoId) => {
-  return `http://localhost:8080/api/v1/videos/${videoId}`;
+  return `/api/videos/${videoId}`;
 };
 
 // Get HLS stream URL (if HLS is available)
 export const getHlsStreamUrl = (videoId) => {
-  return `http://localhost:8080/api/v1/videos/${videoId}/master.m3u8`;
+  return `/api/videos/${videoId}/master.m3u8`;
 };
 
 // Get video download URL
 export const getVideoDownloadUrl = (videoId) => {
-  return `http://localhost:8080/api/v1/videos/stream/${videoId}`;
+  return `/api/videos/stream/${videoId}`;
 };
 
 // Quality options for video player
