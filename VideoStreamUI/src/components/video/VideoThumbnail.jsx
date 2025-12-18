@@ -113,6 +113,25 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
             {video.description}
           </p>
         )}
+
+        {/* Tags */}
+        {video.tags && video.tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {video.tags.slice(0, 3).map((tag, index) => (
+              <span 
+                key={index} 
+                className="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-1 rounded-md font-medium border border-blue-100 dark:border-blue-800/50"
+              >
+                #{tag}
+              </span>
+            ))}
+            {video.tags.length > 3 && (
+              <span className="text-[10px] text-neutral-400 flex items-center">
+                +{video.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Loading State */}

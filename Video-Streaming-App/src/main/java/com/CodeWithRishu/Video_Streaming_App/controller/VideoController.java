@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,7 +37,8 @@ public class VideoController {
             @RequestParam("videoFile") MultipartFile videoFile,
             @RequestParam("thumbnailFile") MultipartFile thumbnailFile,
             @RequestParam("title") String title,
-            @RequestParam("description") String description
+            @RequestParam("description") String description,
+            @RequestParam(value = "tags", required = false) List<String> tags
     ) {
         log.info("Uploading video: {}", title);
 
@@ -44,6 +46,7 @@ public class VideoController {
         video.setVideoId(UUID.randomUUID().toString());
         video.setTitle(title);
         video.setDescription(description);
+        video.setTags(tags);
 
         Video saved = videoService.save(video, videoFile, thumbnailFile);
         if (saved != null) {

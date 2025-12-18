@@ -10,7 +10,9 @@ public interface Serialization {
                 video.getTitle(),
                 video.getDescription(),
                 video.getContentType(),
-                video.getDuration()
+                video.getDuration(),
+                video.getUploadDate(),
+                video.getTags()
         );
     }
 }

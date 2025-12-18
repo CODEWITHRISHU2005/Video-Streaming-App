@@ -88,16 +88,31 @@ export function mapVideoDetails(input) {
     }
   }
 
-  return {
-    id,
-    title: details.title,
-    description: details.description || "",
-    duration: duration,
-    uploadDate: details.uploadDate || details.upload_date,
+    // Handle uploadDate mapping with support for Java Instant (seconds or ISO string)
+    let uploadDate = details.uploadDate || details.upload_date || details.createdAt || details.created_at;
+    
+    // If uploadDate is a number (timestamp), check if it's in seconds (Java Instant often serializes to epoch seconds)
+    // A timestamp in seconds is ~10 digits, milliseconds is ~13 digits
+    if (typeof uploadDate === 'number') {
+      // If less than 100 billion, it's likely seconds (valid until year 5138)
+      if (uploadDate < 100000000000) {
+        uploadDate = uploadDate * 1000;
+      }
+    }
+
+    return {
+      id,
+      title: details.title,
+      description: details.description || "",
+      duration: duration,
+      uploadDate: uploadDate,
     fileSize: details.fileSize ?? details.file_size,
     views: details.views ?? 0,
     likes: details.likes ?? details.likeCount ?? details.like_count ?? 0,
     comments: details.comments ?? details.commentCount ?? details.comment_count ?? 0,
+    tags: Array.isArray(details.tags) 
+      ? details.tags 
+      : (typeof details.tags === 'string' ? details.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
     category: details.category || details.genre || 'General',
     thumbnailUrl:
       details.thumbnailUrl ?? details.thumbnail_url ?? `${API_BASE}/thumbnail/${id}`,

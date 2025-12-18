@@ -60,7 +60,14 @@ export const formatFileSize = (bytes) => {
 // Format upload date
 export const formatUploadDate = (date) => {
   if (!date) return '';
-  return formatDistanceToNow(new Date(date), { addSuffix: true });
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return formatDistanceToNow(d, { addSuffix: true });
+  } catch (error) {
+    console.warn('Invalid date format:', date);
+    return '';
+  }
 };
 
 // Validate video file

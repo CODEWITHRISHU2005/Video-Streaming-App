@@ -222,12 +222,20 @@ export default function WatchPage() {
     navigate(`/watch/${video.id}`);
   };
 
+  const handleVideoEnded = useCallback(() => {
+    if (userPreferences?.autoplay && relatedVideos.length > 0) {
+      const nextVideo = relatedVideos[0];
+      toast('Autoplaying next video...', { icon: '▶️' });
+      handleNavigateToVideo(nextVideo);
+    }
+  }, [userPreferences?.autoplay, relatedVideos]);
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white flex items-center justify-center">
         <div className="space-y-4 text-center">
-          <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-lg text-white/60">Loading your video experience…</p>
+          <div className="w-16 h-16 border-4 border-blue-600/20 border-t-blue-600 dark:border-white/20 dark:border-t-white rounded-full animate-spin mx-auto" />
+          <p className="text-lg text-gray-600 dark:text-white/60">Loading your video experience…</p>
         </div>
       </div>
     );
@@ -235,10 +243,10 @@ export default function WatchPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center px-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white flex items-center justify-center px-6">
         <div className="max-w-lg text-center space-y-4">
           <h2 className="text-2xl font-bold">We hit a snag</h2>
-          <p className="text-white/60">{error}</p>
+          <p className="text-gray-600 dark:text-white/60">{error}</p>
           <Button color="light" onClick={fetchVideoDetails}>
             Retry loading
           </Button>
@@ -249,29 +257,30 @@ export default function WatchPage() {
 
   if (!currentVideo) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center">
-        <p className="text-lg text-white/60">Video not found or failed to load.</p>
+      <div className="min-h-screen bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white flex items-center justify-center">
+        <p className="text-lg text-gray-600 dark:text-white/60">Video not found or failed to load.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
+    <div className="min-h-screen bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white transition-colors duration-300">
       <div className="max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-10 py-12">
         <div className="grid gap-10 xl:gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
           <div className="space-y-8">
-            <div className="overflow-hidden rounded-3xl bg-neutral-900/80 border border-white/10 shadow-2xl">
+            <div className="overflow-hidden rounded-3xl bg-white dark:bg-neutral-900/80 border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-2xl">
               <VideoPlayer
                 videoData={currentVideo}
                 userPreferences={userPreferences}
                 isPlaying={isPlaying}
+                onEnded={handleVideoEnded}
               />
             </div>
 
-            <section className="rounded-3xl bg-neutral-900/80 border border-white/10 p-6 sm:p-8 space-y-6">
+            <section className="rounded-3xl bg-white dark:bg-neutral-900/80 border border-gray-200 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-sm">
               <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide text-white/50">
-                  <span className="px-3 py-1 rounded-full bg-blue-600/20 border border-blue-400/40">Now Playing</span>
+                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-white/50">
+                  <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-600/20 dark:text-blue-200 border border-blue-200 dark:border-blue-400/40">Now Playing</span>
                   {currentVideo.uploadDate && (
                     <span className="flex items-center gap-2">
                       <FaClock className="text-sm" />
@@ -279,24 +288,13 @@ export default function WatchPage() {
                     </span>
                   )}
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-white">
+                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-gray-900 dark:text-white">
                   {currentVideo.title}
                 </h1>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
-                <div className="flex items-center gap-2">
-                  <FaEye className="text-base" />
-                  <span>{(currentVideo.views ?? 0).toLocaleString()} views</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <FaThumbsUp className="text-base" />
-                  <span>{(currentVideo.likes ?? 0).toLocaleString()} likes</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <FaCommentDots className="text-base" />
-                  <span>{(currentVideo.comments ?? 0).toLocaleString()} comments</span>
-                </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-white/70">
+
                 {currentVideo.duration ? (
                   <div className="flex items-center gap-2">
                     <FaRegClock className="text-base" />
@@ -309,6 +307,14 @@ export default function WatchPage() {
                     <span>{formatFileSize(currentVideo.fileSize)}</span>
                   </div>
                 ) : null}
+                {currentVideo.tags && currentVideo.tags.map((tag, index) => (
+                  <span 
+                    key={index} 
+                    className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100/50 text-blue-700 dark:bg-blue-600/20 dark:text-blue-200 border border-blue-200 dark:border-blue-400/30"
+                  >
+                    #{tag}
+                  </span>
+                ))}
               </div>
 
               <div className="flex flex-wrap gap-3">
@@ -317,8 +323,8 @@ export default function WatchPage() {
                   onClick={handleToggleFavorite}
                   className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors border ${
                     isFavorite
-                      ? 'bg-red-500/20 border-red-400/60 text-red-200'
-                      : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10'
+                      ? 'bg-red-50 border-red-200 text-red-600 dark:bg-red-500/20 dark:border-red-400/60 dark:text-red-200'
+                      : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10'
                   } ${isFavoriteAnimating ? 'favorite-animate' : ''}`}
                 >
                   <FaHeart className="text-base" />
@@ -330,8 +336,8 @@ export default function WatchPage() {
                   onClick={handleToggleWatchLater}
                   className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors border ${
                     isInWatchLater
-                      ? 'bg-blue-500/15 border-blue-400/60 text-blue-200'
-                      : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10'
+                      ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-500/15 dark:border-blue-400/60 dark:text-blue-200'
+                      : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10'
                   } ${isWatchLaterAnimating ? 'favorite-animate' : ''}`}
                 >
                   <FaBookmark className="text-base" />
@@ -341,7 +347,7 @@ export default function WatchPage() {
                 <button
                   type="button"
                   onClick={handleShare}
-                  className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"
+                  className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10"
                 >
                   <FaShareAlt className="text-base" />
                   Share
@@ -352,8 +358,8 @@ export default function WatchPage() {
                   onClick={handleCopyLink}
                   className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors border ${
                     copied
-                      ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-100'
-                      : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/20 dark:border-emerald-400/60 dark:text-emerald-100'
+                      : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10'
                   }`}
                 >
                   <FaPlayCircle className="text-base" />
@@ -365,7 +371,7 @@ export default function WatchPage() {
                     href={currentVideo.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors bg-white text-neutral-900 hover:bg-neutral-200"
+                    className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
                   >
                     <FaDownload className="text-base" />
                     Open Source
@@ -375,9 +381,9 @@ export default function WatchPage() {
 
               {currentVideo.description && (
                 <div className="space-y-3">
-                  <h2 className="text-lg font-semibold text-white">Description</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Description</h2>
                   <p
-                    className={`text-sm leading-relaxed text-white/70 whitespace-pre-line ${
+                    className={`text-sm leading-relaxed text-gray-600 dark:text-white/70 whitespace-pre-line ${
                       showFullDescription ? '' : 'line-clamp-4'
                     }`}
                   >
@@ -387,22 +393,23 @@ export default function WatchPage() {
                     <button
                       type="button"
                       onClick={() => setShowFullDescription(prev => !prev)}
-                      className="text-sm font-semibold text-blue-300 hover:text-blue-200"
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
                     >
                       {showFullDescription ? 'Show less' : 'Show more'}
                     </button>
                   )}
                 </div>
               )}
+
             </section>
           </div>
 
           <aside className="space-y-6">
-            <div className="rounded-3xl bg-neutral-900/80 border border-white/10 p-6 space-y-4">
+            <div className="rounded-3xl bg-white dark:bg-neutral-900/80 border border-gray-200 dark:border-white/10 p-6 space-y-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Autoplay next</h2>
-                  <p className="text-sm text-white/60">Keep watching without lifting a finger.</p>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Autoplay next</h2>
+                  <p className="text-sm text-gray-500 dark:text-white/60">Keep watching without lifting a finger.</p>
                 </div>
                 <ToggleSwitch
                   checked={Boolean(userPreferences?.autoplay)}
@@ -411,21 +418,21 @@ export default function WatchPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl bg-neutral-900/80 border border-white/10 overflow-hidden">
-              <header className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-white">Up Next</h2>
-                <span className="text-sm text-white/50">{relatedVideos.length} videos</span>
+            <div className="rounded-3xl bg-white dark:bg-neutral-900/80 border border-gray-200 dark:border-white/10 overflow-hidden shadow-sm">
+              <header className="px-6 py-5 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Up Next</h2>
+                <span className="text-sm text-gray-500 dark:text-white/50">{relatedVideos.length} videos</span>
               </header>
               {relatedVideos.length > 0 ? (
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-gray-100 dark:divide-white/5">
                   {relatedVideos.map(video => (
                     <button
                       key={video.id}
                       type="button"
                       onClick={() => handleNavigateToVideo(video)}
-                      className="w-full text-left px-6 py-4 flex gap-4 hover:bg-white/5 transition-colors"
+                      className="w-full text-left px-6 py-4 flex gap-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                     >
-                      <div className="relative w-32 flex-shrink-0 aspect-video overflow-hidden rounded-xl bg-neutral-800">
+                      <div className="relative w-32 flex-shrink-0 aspect-video overflow-hidden rounded-xl bg-gray-200 dark:bg-neutral-800">
                         <img
                           src={video.thumbnailUrl}
                           alt={video.title}
@@ -437,22 +444,19 @@ export default function WatchPage() {
                         </span>
                       </div>
                       <div className="flex-1 space-y-1">
-                        <p className="font-semibold text-white line-clamp-2">{video.title}</p>
-                        <div className="flex items-center gap-2 text-xs text-white/60">
+                        <p className="font-semibold text-gray-900 dark:text-white line-clamp-2">{video.title}</p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-white/60">
                           <FaClock className="text-[0.75rem]" />
                           <span>{formatUploadDate(video.uploadDate)}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-white/60">
-                          <FaEye className="text-[0.75rem]" />
-                          <span>{(video.views ?? 0).toLocaleString()} views</span>
-                        </div>
+
                       </div>
-                      <FaPlayCircle className="text-2xl text-white/40 self-center" />
+                      <FaPlayCircle className="text-2xl text-gray-400 dark:text-white/40 self-center" />
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="px-6 py-12 text-center text-sm text-white/50">
+                <div className="px-6 py-12 text-center text-sm text-gray-500 dark:text-white/50">
                   No recommendations available right now.
                 </div>
               )}

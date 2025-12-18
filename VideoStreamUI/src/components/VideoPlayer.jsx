@@ -52,12 +52,18 @@ export default function VideoPlayer({
   videoData,
   userPreferences = { autoplay: false },
   isPlaying,
+  onEnded,
 }) {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const playerRef = useRef(null);
   const hlsRef = useRef(null);
   const qualitySelectorInitialized = useRef(false);
+  const onEndedRef = useRef(onEnded);
+
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
   const stallRetriesRef = useRef(0);
 
   const [isBuffering, setIsBuffering] = useState(false);
@@ -112,7 +118,7 @@ export default function VideoPlayer({
     const player = videojs(videoEl, {
       controls: true,
       autoplay: shouldAutoplay,
-      muted: shouldAutoplay,
+      muted: false,
       preload: 'auto',
       fluid: true,
       aspectRatio: '16:9',
@@ -143,6 +149,10 @@ export default function VideoPlayer({
       setPlaybackSpeed(player.playbackRate());
     });
 
+    player.on('ended', () => {
+      onEndedRef.current?.();
+    });
+
     playerRef.current = player;
 
     return () => {
@@ -153,7 +163,7 @@ export default function VideoPlayer({
       hlsRef.current = null;
       qualitySelectorInitialized.current = false;
     };
-  }, [userPreferences?.autoplay]);
+  }, []);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -161,7 +171,7 @@ export default function VideoPlayer({
 
     const shouldAutoplay = Boolean(userPreferences?.autoplay);
     player.autoplay(shouldAutoplay);
-    player.muted(shouldAutoplay);
+    player.muted(false);
   }, [userPreferences?.autoplay]);
 
   useEffect(() => {

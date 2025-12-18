@@ -242,23 +242,23 @@ export default function HomePage() {
                 <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                   {video.description}
                 </p>
+                {/* Tags for Featured Videos */}
+                {video.tags && video.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {video.tags.slice(0, 3).map((tag, index) => (
+                      <span 
+                        key={index} 
+                        className="text-[10px] bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 px-2 py-1 rounded-md font-medium border border-pink-100 dark:border-pink-800/50"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                   <div className="flex items-center gap-1">
                     <FaClock /> {formatUploadDate(video.uploadDate) || 'Just now'}
                   </div>
-                  {typeof video.views === 'number' && (
-                    <div className="flex items-center gap-1">
-                      <FaEye /> {video.views} views
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="inline-flex items-center gap-1">
-                    <FaThumbsUp /> {(video.likes ?? 0).toLocaleString()}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <FaCommentDots /> {(video.comments ?? 0).toLocaleString()}
-                  </span>
                 </div>
               </div>
             </Card>

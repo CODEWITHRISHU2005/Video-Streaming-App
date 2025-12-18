@@ -1069,3 +1069,22 @@ html {
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+/* Custom Animations for Settings Page */
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+@keyframes gradient-x {
+  0%, 100% {
+    background-size: 200% 200%;
+    background-position: left center;
+  }
+  50% {
+    background-size: 200% 200%;
+    background-position: right center;
+  }
+}
+.animate-gradient-x {
+  animation: gradient-x 3s ease infinite;
+}
+

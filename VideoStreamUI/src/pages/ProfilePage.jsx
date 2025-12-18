@@ -53,35 +53,7 @@ const itemVariants = {
     visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
 };
 
-const Counter = ({ from, to }) => {
-    const [count, setCount] = useState(from);
 
-    useEffect(() => {
-        const controls = { cancel: false };
-        const duration = 1500; // ms
-        const startTime = performance.now();
-
-        const animate = (currentTime) => {
-            if (controls.cancel) return;
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            
-            // Ease out quart
-            const ease = 1 - Math.pow(1 - progress, 4);
-            
-            setCount(Math.floor(from + (to - from) * ease));
-
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            }
-        };
-
-        requestAnimationFrame(animate);
-        return () => { controls.cancel = true; };
-    }, [from, to]);
-
-    return count;
-};
 
 function ProfilePage() {
     const { user, logout, login, refreshUserProfile } = useAuth();
@@ -375,30 +347,7 @@ function ProfilePage() {
                             </motion.div>
                         </div>
 
-                        {/* Stats Dashboard */}
-                        <motion.div 
-                            variants={itemVariants}
-                            className="flex gap-8 mt-8 border-t border-gray-200 dark:border-white/10 pt-6"
-                        >
-                            <div className="text-center md:text-left">
-                                <span className="block text-2xl font-bold text-gray-900 dark:text-white">
-                                    <Counter from={0} to={userVideos.length * 12 || 1250} />
-                                </span>
-                                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Subscribers</span>
-                            </div>
-                            <div className="text-center md:text-left">
-                                <span className="block text-2xl font-bold text-gray-900 dark:text-white">
-                                    <Counter from={0} to={userVideos.length || 5} />
-                                </span>
-                                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Videos</span>
-                            </div>
-                            <div className="text-center md:text-left">
-                                <span className="block text-2xl font-bold text-gray-900 dark:text-white">
-                                    <Counter from={0} to={userVideos.length * 543 || 12400} />
-                                </span>
-                                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Views</span>
-                            </div>
-                        </motion.div>
+
                     </div>
                 </motion.div>
 
