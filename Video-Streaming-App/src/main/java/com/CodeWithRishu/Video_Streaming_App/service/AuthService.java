@@ -22,6 +22,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class AuthService {
+
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
 
