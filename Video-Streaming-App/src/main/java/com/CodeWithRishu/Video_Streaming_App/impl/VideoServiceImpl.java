@@ -62,7 +62,6 @@ public class VideoServiceImpl implements VideoService {
             video.setFilePath(videoFilename);
             video.setThumbnailUrl(thumbnailFilename);
 
-            // Get video duration
             Path videoPath = Paths.get(uploadDir, videoFilename);
             double duration = getVideoDuration(videoPath);
             video.setDuration(duration);
@@ -138,10 +137,14 @@ public class VideoServiceImpl implements VideoService {
                     "ffmpeg",
                     "-i", videoPath.toString(),
                     "-c:v", "libx264",
+                    "-preset", "ultrafast",   // HIGHEST SPEED, LOWEST RAM USAGE
+                    "-crf", "28",             // Slight quality reduction to save memory
+                    "-threads", "1",          // CRITICAL: Prevents RAM spikes from multi-threading
                     "-c:a", "aac",
-                    "-strict", "-2",
+                    "-ar", "44100",           // Standard audio sample rate
+                    "-b:a", "128k",           // Fixed audio bitrate
                     "-f", "hls",
-                    "-hls_time", "10",
+                    "-hls_time", "6",         // Smaller segments (6s) are easier to process
                     "-hls_list_size", "0",
                     "-hls_segment_filename", segmentPattern,
                     masterPlaylist
@@ -151,7 +154,6 @@ public class VideoServiceImpl implements VideoService {
 
             Process process = processBuilder.start();
 
-            // Capture and log FFmpeg output
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream()))) {
                 String line;
@@ -169,7 +171,6 @@ public class VideoServiceImpl implements VideoService {
                 throw new RuntimeException("Video processing failed with exit code: " + exitCode);
             }
 
-            // Verify files were created
             if (!Files.exists(Paths.get(masterPlaylist))) {
                 log.error("master.m3u8 was not created at: {}", masterPlaylist);
                 throw new RuntimeException("FFmpeg did not create master.m3u8");

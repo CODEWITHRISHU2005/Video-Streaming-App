@@ -47,14 +47,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         try {
             String token = authHeader.substring(7);
-            log.info("Extracted token (first 20 chars): {}", token.substring(0, Math.min(20, token.length())));
+
+            if (token.trim().isEmpty()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
             String username = jwtService.extractUsername(token);
-            log.info("Extracted username: {}", username);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                log.info("Loaded user details for: {}", username);
 
                 if (Boolean.TRUE.equals(jwtService.validateToken(token, userDetails))) {
                     UsernamePasswordAuthenticationToken authToken =
@@ -65,22 +67,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                             );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    log.info("Successfully authenticated user: {}", username);
-                } else {
-                    log.warn("Token validation failed for user: {}", username);
                 }
-            } else {
-                log.info("Authentication already exists");
             }
-        } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            log.error("JWT token is expired", e);
-            request.setAttribute("exception", "token_expired");
-        } catch (io.jsonwebtoken.MalformedJwtException e) {
-            log.error("JWT token is malformed", e);
-            request.setAttribute("exception", "invalid_token");
         } catch (Exception e) {
-            log.error("Error processing JWT token", e);
-            request.setAttribute("exception", "invalid_token");
+            log.error("JWT Authentication failed: {}", e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
         }
 
         filterChain.doFilter(request, response);
