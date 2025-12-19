@@ -171,7 +171,7 @@ function VideoPlaylist({ title = "Playlist", videos = [], showControls = true })
             {/* Video Thumbnail */}
             <div className="flex-shrink-0">
               <img
-                src={`http://localhost:8080/api/v1/videos/${video.id}/thumbnail`}
+                src={`https://video-streaming-app-production.up.railway.app/api/v1/videos/${video.id}/thumbnail`}
                 alt={video.title}
                 className="w-20 h-14 object-cover rounded"
                 onError={(e) => {
