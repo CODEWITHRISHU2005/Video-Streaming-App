@@ -16,12 +16,8 @@ import 'video.js/dist/video-js.css';
 // Warning suppression is handled by suppressVideoJSWarnings.js
 import 'videojs-contrib-quality-levels';
 
-import HlsQualitySelector from 'videojs-hls-quality-selector/dist/videojs-hls-quality-selector.js';
-
-// Register hlsQualitySelector plugin only if not already registered
-if (!videojs.getPlugin('hlsQualitySelector')) {
-  videojs.registerPlugin('hlsQualitySelector', HlsQualitySelector);
-}
+// Register hlsQualitySelector plugin dynamically to avoid load-time errors
+// (Handled in useEffect below)
 
 // Static HLS config to avoid changing reference
 const HLS_CONFIG = {
@@ -70,6 +66,29 @@ export default function VideoPlayer({
   const [showPlayPauseOverlay, setShowPlayPauseOverlay] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
+  // Dynamically load HlsQualitySelector
+  useEffect(() => {
+    const loadPlugin = async () => {
+      if (!videojs.getPlugin('hlsQualitySelector')) {
+        try {
+          // Ensure videojs is available globally for plugins that might need it
+          if (!window.videojs) window.videojs = videojs;
+          
+          const module = await import('videojs-hls-quality-selector/dist/videojs-hls-quality-selector.js');
+          const HlsQualitySelector = module.default || module;
+          
+          if (!videojs.getPlugin('hlsQualitySelector')) {
+            videojs.registerPlugin('hlsQualitySelector', HlsQualitySelector);
+          }
+        } catch (error) {
+          console.error('Failed to load HlsQualitySelector plugin:', error);
+        }
+      }
+    };
+    
+    loadPlugin();
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
