@@ -160,7 +160,12 @@ function EnhancedVideoUpload() {
       const formData = new FormData();
       formData.append("title", meta.title.trim());
       formData.append("description", meta.description.trim());
-      formData.append("tags", tags.join(","));
+      
+      // Append each tag separately so Spring Boot can parse List<String>
+      tags.forEach(tag => {
+        formData.append("tags", tag);
+      });
+      
       formData.append("isPublic", meta.isPublic);
       formData.append("videoFile", selectedVideoFile);
       formData.append("thumbnailFile", selectedImageFile);
