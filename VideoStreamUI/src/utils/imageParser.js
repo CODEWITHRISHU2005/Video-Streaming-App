@@ -1,25 +1,25 @@
 export const processProfileImage = (imageSource) => {
     if (!imageSource) return null;
 
-    // Check for "Base64 encoded URL" case (e.g. data:image/jpeg;base64,aHR0cD...)
-    // This happens if the backend encodes the URL string instead of the image bytes
     if (imageSource.startsWith('data:')) {
         try {
             const base64Content = imageSource.split(',')[1];
             if (base64Content) {
                 const decoded = atob(base64Content);
-                // If the decoded content is a URL, return that URL directly
+                
                 if (decoded.startsWith('http')) {
                     return decoded;
                 }
+                
+                if (decoded.startsWith('data:')) {
+                    return processProfileImage(decoded);
+                }
             }
         } catch (e) {
-            // Ignore decoding errors, treat as normal data URI
         }
         return imageSource;
     }
 
-    // Check if it's a standard URL
     if (imageSource.startsWith('http')) {
         return imageSource;
     }

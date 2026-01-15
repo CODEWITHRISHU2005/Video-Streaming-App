@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Optional;
 
@@ -90,9 +91,14 @@ public class AuthService {
     private String formatImage(byte[] imageBytes) {
         if (imageBytes == null || imageBytes.length == 0) return null;
 
-        if (imageBytes.length > 4 &&
-                imageBytes[0] == 'h' && imageBytes[1] == 't' && imageBytes[2] == 't' && imageBytes[3] == 'p') {
-            return new String(imageBytes).trim();
+        try {
+            String content = new String(imageBytes, StandardCharsets.UTF_8).trim();
+
+            if (content.startsWith("http://") || content.startsWith("https://") || content.startsWith("data:")) {
+                return content;
+            }
+        } catch (Exception e) {
+            log.warn("Error interpreting profile image bytes as URL, treating as raw image data");
         }
 
         return "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes);

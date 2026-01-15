@@ -146,7 +146,16 @@ function ProfilePage() {
                         <div className="flex flex-col items-center justify-center mb-4">
                             <div className="relative w-24 h-24 mb-2">
                                 <img
-                                    src={editFormData.previewImage || processProfileImage(user?.profileImageUrl || user?.avatar || user?.avatarUrl || user?.picture || user?.image || user?.profileImage) || "https://via.placeholder.com/150"}
+                                    src={editFormData.previewImage || processProfileImage(
+                                        user?.profileImageUrl || 
+                                        user?.avatar || 
+                                        user?.avatarUrl || 
+                                        user?.picture || 
+                                        user?.image || 
+                                        user?.profileImage ||
+                                        user?.photo ||
+                                        user?.imageUrl
+                                    ) || "https://via.placeholder.com/150"}
                                     alt="Profile Preview"
                                     className="w-full h-full rounded-full object-cover border-2 border-purple-500"
                                     referrerPolicy="no-referrer"
@@ -259,15 +268,29 @@ function ProfilePage() {
                         >
                             <div className="w-full h-full rounded-[20px] overflow-hidden bg-white dark:bg-[#1a1c24] relative">
                                 {(() => {
-                                    const processedImage = processProfileImage(user?.profileImageUrl || user?.avatar || user?.avatarUrl || user?.picture || user?.image || user?.profileImage);
+                                    const imageSource = user?.profileImageUrl || 
+                                                       user?.avatar || 
+                                                       user?.avatarUrl || 
+                                                       user?.picture || 
+                                                       user?.image || 
+                                                       user?.profileImage ||
+                                                       user?.photo ||
+                                                       user?.imageUrl;
+                                    
+                                    const processedImage = processProfileImage(imageSource);
+                                    
                                     return (
                                         <>
                                             {processedImage && (
                                                 <img 
                                                     src={processedImage} 
-                                                    alt={user.name} 
+                                                    alt={user?.name || "Profile"} 
                                                     className="w-full h-full object-cover block" 
                                                     referrerPolicy="no-referrer"
+                                                    onError={(e) => {
+                                                        console.error("Image failed to load:", processedImage);
+                                                        e.target.style.display = 'none';
+                                                    }}
                                                 />
                                             )}
                                             
