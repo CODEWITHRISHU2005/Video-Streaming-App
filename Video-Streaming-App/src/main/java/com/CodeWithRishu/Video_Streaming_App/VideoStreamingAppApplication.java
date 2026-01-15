@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 
 @SpringBootApplication
 @EnableAsync
-@CrossOrigin(origins = "https://video-streaming-app-lac.vercel.app/")
+@CrossOrigin(origins = {"https://video-streaming-app-lac.vercel.app/","http://localhost:5173"})
 public class VideoStreamingAppApplication {
 
 	public static void main(String[] args) {
