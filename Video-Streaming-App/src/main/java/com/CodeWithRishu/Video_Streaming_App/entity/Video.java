@@ -27,6 +27,8 @@ public class Video {
     @Basic(fetch = FetchType.LAZY)
     private String description;
 
+    private String status;
+
     private String contentType;
 
     private String filePath;
