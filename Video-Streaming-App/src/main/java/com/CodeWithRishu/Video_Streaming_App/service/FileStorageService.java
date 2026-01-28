@@ -25,7 +25,7 @@ public class FileStorageService {
 
     private final Path fileStorageLocation;
 
-    public FileStorageService(@Value("${file.upload-dir}") String uploadDir) {
+    public FileStorageService(@Value("${file.video.upload-dir}") String uploadDir) {
         log.info("Initializing FileStorageService with upload directory: {}", uploadDir);
 
         this.fileStorageLocation = Paths.get(uploadDir)
