@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaPlay, FaClock, FaHeart } from 'react-icons/fa';
-import { formatDuration, formatFileSize, formatUploadDate } from '../../utils/videoUtils';
+import { FaPlay, FaClock, FaHeart, FaEye, FaThumbsUp, FaComment, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import { formatDuration, formatFileSize, formatUploadDate, formatCount } from '../../utils/videoUtils';
 import { useVideo } from '../../context/VideoContext';
 
 function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
@@ -92,9 +92,47 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
 
       {/* Video Info */}
       <div className="p-4">
+        {/* Status Badge - Show if processing */}
+        {video.status && video.status !== 'PUBLISHED' && (
+          <div className="mb-2">
+            {video.status === 'PROCESSING' || video.status === 'UPLOADING' ? (
+              <span className="inline-flex items-center gap-1 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-1 rounded-full font-medium">
+                <FaSpinner className="animate-spin" />
+                {video.status === 'UPLOADING' ? 'Uploading...' : 'Processing...'}
+              </span>
+            ) : video.status === 'DRAFT' ? (
+              <span className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full font-medium">
+                Draft
+              </span>
+            ) : null}
+          </div>
+        )}
+
         <h3 className="font-bold text-neutral-900 dark:text-white text-base line-clamp-2 mb-1 leading-tight">
           {video.title}
         </h3>
+
+        {/* Engagement Metrics */}
+        <div className="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+          {video.views > 0 && (
+            <div className="flex items-center gap-1">
+              <FaEye className="text-sm" />
+              <span>{formatCount(video.views)} views</span>
+            </div>
+          )}
+          {video.likes > 0 && (
+            <div className="flex items-center gap-1">
+              <FaThumbsUp className="text-sm" />
+              <span>{formatCount(video.likes)}</span>
+            </div>
+          )}
+          {video.comments > 0 && (
+            <div className="flex items-center gap-1">
+              <FaComment className="text-sm" />
+              <span>{formatCount(video.comments)}</span>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 mt-2">
           <div className="flex items-center space-x-1">
@@ -102,8 +140,11 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
             <span>{formatUploadDate(video.uploadDate) || 'Recently added'}</span>
           </div>
 
-          {video.fileSize && (
-            <span className="ml-auto">{formatFileSize(video.fileSize)}</span>
+          {/* Quality/Resolution Badge */}
+          {(video.resolution || video.quality) && (
+            <span className="ml-auto px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded font-medium">
+              {video.resolution || video.quality}
+            </span>
           )}
         </div>
 

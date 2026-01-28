@@ -45,6 +45,10 @@ public class VideoServiceImpl implements VideoService {
     @Value("${cloudflare.r2.public-url}")
     private String r2PublicUrl;
 
+    // Optional: Add CDN URL if you have Cloudflare CDN configured
+    @Value("${cloudflare.cdn.url:#{null}}")
+    private String cdnUrl;
+
     private final VideoRepository videoRepository;
     private final FileStorageService fileStorageService;
     private final S3Client s3Client;
@@ -64,23 +68,49 @@ public class VideoServiceImpl implements VideoService {
     @Override
     public Video save(Video video, MultipartFile videoFile, MultipartFile thumbnailFile) {
         try {
+            // Store files temporarily
             String videoFilename = fileStorageService.storeFile(videoFile);
             String thumbnailFilename = fileStorageService.storeFile(thumbnailFile);
 
+            // Set basic file info
             video.setContentType(videoFile.getContentType());
             video.setFilePath(videoFilename);
             video.setThumbnailUrl(thumbnailFilename);
-            video.setStatus("PROCESSING");
+            video.setStatus(Video.VideoStatus.UPLOADING); // Use enum
+            
+            // Store original filename
+            video.setOriginalFilename(videoFile.getOriginalFilename());
+            
+            // Store file sizes
+            video.setVideoFileSize(videoFile.getSize());
+            video.setThumbnailFileSize(thumbnailFile.getSize());
+            
+            // Set R2 bucket name
+            video.setR2BucketName(bucketName);
 
+            // Extract video metadata
             Path videoPath = Paths.get(uploadDir, videoFilename);
-            video.setDuration(getVideoDuration(videoPath));
+            extractVideoMetadata(video, videoPath);
+
+            // Initialize engagement metrics
+            video.setViewCount(0L);
+            video.setLikeCount(0L);
+            video.setDislikeCount(0L);
+            video.setCommentCount(0L);
+            
+            // Set defaults if not already set
+            if (video.getIsPublic() == null) video.setIsPublic(true);
+            if (video.getAllowComments() == null) video.setAllowComments(true);
+            if (video.getAgeRestricted() == null) video.setAgeRestricted(false);
 
             Video savedVideo = videoRepository.save(video);
 
+            // Start async processing
             processVideo(savedVideo.getVideoId());
 
             return savedVideo;
         } catch (Exception e) {
+            log.error("Error while saving video", e);
             throw new RuntimeException("Error while saving video", e);
         }
     }
@@ -102,11 +132,17 @@ public class VideoServiceImpl implements VideoService {
             try {
                 ffmpegSemaphore.acquire();
 
+                // Update status to PROCESSING
+                updateVideoStatus(videoId, Video.VideoStatus.PROCESSING);
+
+                // Convert to HLS
                 runFFmpegConversion(videoId);
+                
+                // Upload HLS files to R2
                 uploadFolderToCloud(videoId);
 
                 videoRepository.findById(videoId).ifPresent(video -> {
-
+                    // Upload and update thumbnail
                     Optional.ofNullable(video.getThumbnailUrl())
                             .filter(url -> !url.startsWith("http"))
                             .map(filename -> Paths.get(uploadDir, filename))
@@ -115,14 +151,40 @@ public class VideoServiceImpl implements VideoService {
                                 String thumbKey = "thumbnails/" + videoId + "/" + path.getFileName();
                                 uploadFileToS3(thumbKey, path, getContentType(path.getFileName().toString()));
 
+                                // Set R2 thumbnail key
+                                video.setR2ThumbnailKey(thumbKey);
+                                
+                                // Set R2 URL
                                 video.setThumbnailUrl(r2PublicUrl + "/" + thumbKey);
+                                
+                                // Set CDN URL if available
+                                if (cdnUrl != null && !cdnUrl.isEmpty()) {
+                                    video.setThumbnailCdnUrl(cdnUrl + "/" + thumbKey);
+                                }
+                                
+                                // Delete local thumbnail
                                 try { Files.deleteIfExists(path); } catch (IOException ignored) {}
                             });
 
-                    video.setStatus("COMPLETED");
-                    video.setUrl(r2PublicUrl + "/videos/" + videoId + "/master.m3u8");
+                    // Set video URLs
+                    String videoKey = "videos/" + videoId + "/master.m3u8";
+                    video.setR2VideoKey(videoKey);
+                    video.setVideoUrl(r2PublicUrl + "/" + videoKey);
+                    
+                    // Set CDN URL if available
+                    if (cdnUrl != null && !cdnUrl.isEmpty()) {
+                        video.setVideoCdnUrl(cdnUrl + "/" + videoKey);
+                    }
+                    
+                    // Update URL (main playback URL)
+                    video.setUrl(cdnUrl != null ? cdnUrl + "/" + videoKey : r2PublicUrl + "/" + videoKey);
+                    
+                    // Set status to PUBLISHED
+                    video.setStatus(Video.VideoStatus.PUBLISHED);
+                    
                     videoRepository.save(video);
 
+                    // Delete local video file
                     Optional.ofNullable(video.getFilePath())
                             .map(filename -> Paths.get(uploadDir, filename))
                             .ifPresent(path -> {
@@ -130,14 +192,15 @@ public class VideoServiceImpl implements VideoService {
                             });
                 });
 
+                // Clean up temp HLS directory
                 FileSystemUtils.deleteRecursively(Paths.get(hslDir, videoId));
 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                updateVideoStatus(videoId, "FAILED");
+                updateVideoStatus(videoId, Video.VideoStatus.FAILED);
             } catch (Exception e) {
                 log.error("Processing failed for {}", videoId, e);
-                updateVideoStatus(videoId, "FAILED");
+                updateVideoStatus(videoId, Video.VideoStatus.FAILED);
             } finally {
                 ffmpegSemaphore.release();
             }
@@ -159,7 +222,34 @@ public class VideoServiceImpl implements VideoService {
         throw new UnsupportedOperationException("HLS streaming is served directly from Cloudflare R2.");
     }
 
-    private double getVideoDuration(Path videoPath) {
+    /**
+     * Extract video metadata using ffprobe
+     */
+    private void extractVideoMetadata(Video video, Path videoPath) {
+        try {
+            // Get duration
+            video.setDuration(getVideoDuration(videoPath));
+            
+            // Get resolution
+            String resolution = getVideoResolution(videoPath);
+            video.setResolution(resolution);
+            
+            // Determine quality based on resolution
+            video.setQuality(determineQuality(resolution));
+            
+            // Get frame rate
+            Double frameRate = getVideoFrameRate(videoPath);
+            video.setFrameRate(frameRate);
+            
+        } catch (Exception e) {
+            log.error("Error extracting video metadata", e);
+        }
+    }
+
+    /**
+     * Get video duration in seconds using ffprobe
+     */
+    private Long getVideoDuration(Path videoPath) {
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(
                     "ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -169,15 +259,100 @@ public class VideoServiceImpl implements VideoService {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 return reader.lines()
                         .findFirst()
-                        .map(Double::parseDouble)
-                        .orElse(0.0);
+                        .map(s -> (long) Double.parseDouble(s))
+                        .orElse(0L);
             }
         } catch (Exception e) {
             log.error("Error getting duration", e);
+            return 0L;
         }
-        return 0.0;
     }
 
+    /**
+     * Get video resolution using ffprobe
+     */
+    private String getVideoResolution(Path videoPath) {
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                    "ffprobe", "-v", "error", "-select_streams", "v:0",
+                    "-show_entries", "stream=width,height",
+                    "-of", "csv=s=x:p=0", videoPath.toString()
+            );
+            Process process = processBuilder.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                return reader.lines()
+                        .findFirst()
+                        .orElse("Unknown");
+            }
+        } catch (Exception e) {
+            log.error("Error getting resolution", e);
+            return "Unknown";
+        }
+    }
+
+    /**
+     * Get video frame rate using ffprobe
+     */
+    private Double getVideoFrameRate(Path videoPath) {
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                    "ffprobe", "-v", "error", "-select_streams", "v:0",
+                    "-show_entries", "stream=r_frame_rate",
+                    "-of", "default=noprint_wrappers=1:nokey=1", videoPath.toString()
+            );
+            Process process = processBuilder.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                return reader.lines()
+                        .findFirst()
+                        .map(this::parseFraction)
+                        .orElse(null);
+            }
+        } catch (Exception e) {
+            log.error("Error getting frame rate", e);
+            return null;
+        }
+    }
+
+    /**
+     * Parse fraction string (e.g., "30000/1001") to double
+     */
+    private Double parseFraction(String fraction) {
+        try {
+            if (fraction.contains("/")) {
+                String[] parts = fraction.split("/");
+                return Double.parseDouble(parts[0]) / Double.parseDouble(parts[1]);
+            }
+            return Double.parseDouble(fraction);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Determine quality label based on resolution
+     */
+    private String determineQuality(String resolution) {
+        if (resolution == null || resolution.equals("Unknown")) {
+            return "Auto";
+        }
+        
+        try {
+            int height = Integer.parseInt(resolution.split("x")[1]);
+            
+            if (height >= 2160) return "4K";
+            if (height >= 1440) return "2K";
+            if (height >= 1080) return "FHD";
+            if (height >= 720) return "HD";
+            if (height >= 480) return "SD";
+            return "LD";
+        } catch (Exception e) {
+            return "Auto";
+        }
+    }
+
+    /**
+     * Run FFmpeg conversion to HLS
+     */
     private void runFFmpegConversion(String videoId) throws Exception {
         Video video = this.get(videoId);
         Path videoPath = Paths.get(uploadDir, video.getFilePath());
@@ -201,13 +376,19 @@ public class VideoServiceImpl implements VideoService {
         if (exitCode != 0) throw new RuntimeException("FFmpeg exit code " + exitCode);
     }
 
-    private void updateVideoStatus(String videoId, String status) {
+    /**
+     * Update video status
+     */
+    private void updateVideoStatus(String videoId, Video.VideoStatus status) {
         videoRepository.findById(videoId).ifPresent(v -> {
             v.setStatus(status);
             videoRepository.save(v);
         });
     }
 
+    /**
+     * Upload entire HLS folder to R2
+     */
     private void uploadFolderToCloud(String videoId) throws IOException {
         Path hlsPath = Paths.get(hslDir, videoId);
         try (Stream<Path> paths = Files.walk(hlsPath)) {
@@ -220,20 +401,33 @@ public class VideoServiceImpl implements VideoService {
         }
     }
 
+    /**
+     * Upload file to S3/R2
+     */
     private void uploadFileToS3(String key, Path path, String contentType) {
-        s3Client.putObject(PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(key)
-                .contentType(contentType)
-                .build(), path);
+        try {
+            s3Client.putObject(PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .contentType(contentType)
+                    .build(), path);
+            log.debug("Uploaded {} to R2", key);
+        } catch (Exception e) {
+            log.error("Failed to upload {} to R2", key, e);
+            throw new RuntimeException("Upload failed for " + key, e);
+        }
     }
 
+    /**
+     * Determine content type from filename
+     */
     private String getContentType(String filename) {
         if (filename.endsWith(".m3u8")) return "application/x-mpegURL";
         if (filename.endsWith(".ts")) return "video/MP2T";
         if (filename.endsWith(".mp4")) return "video/mp4";
         if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
         if (filename.endsWith(".png")) return "image/png";
+        if (filename.endsWith(".webp")) return "image/webp";
         return "application/octet-stream";
     }
 }

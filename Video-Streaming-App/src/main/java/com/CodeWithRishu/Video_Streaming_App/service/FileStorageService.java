@@ -21,7 +21,7 @@ import java.util.UUID;
 public class FileStorageService {
 
     private static final String FILENAME_SEPARATOR = "_";
-    private static final long MAX_FILE_SIZE = 2L * 1024 * 1024 * 1024; // 100MB
+    private static final long MAX_FILE_SIZE = 2L * 1024 * 1024 * 1024; // 2 GB
 
     private final Path fileStorageLocation;
 
@@ -161,7 +161,6 @@ public class FileStorageService {
         } catch (IOException ex) {
             log.error("Failed to store file: {} at location: {}", filename, targetLocation, ex);
 
-            // Attempt cleanup on failure
             cleanupFailedUpload(targetLocation);
 
             throw new FileStorageException(

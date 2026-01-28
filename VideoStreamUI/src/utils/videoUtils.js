@@ -70,6 +70,22 @@ export const formatUploadDate = (date) => {
   }
 };
 
+// Format count (views, likes, etc.) - e.g., 1234 -> 1.2K, 1234567 -> 1.2M
+export const formatCount = (count) => {
+  if (!count && count !== 0) return '0';
+  
+  const num = Number(count);
+  if (isNaN(num)) return '0';
+  
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  }
+  return num.toString();
+};
+
 // Validate video file
 export const validateVideoFile = (file) => {
   const allowedTypes = [
