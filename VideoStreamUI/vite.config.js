@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://video-streaming-app-production.up.railway.app',
+        target: 'https://video-streaming-app-4gtd.onrender.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '/api'),
       },

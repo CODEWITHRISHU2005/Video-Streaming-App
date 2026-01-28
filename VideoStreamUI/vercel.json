@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://video-streaming-app-production.up.railway.app/api/$1"
+      "destination": "https://video-streaming-app-4gtd.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
