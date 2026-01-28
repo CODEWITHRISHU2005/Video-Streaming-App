@@ -8,16 +8,14 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileSystemUtils;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
@@ -27,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 @Service
@@ -44,9 +41,12 @@ public class VideoServiceImpl implements VideoService {
     @Value("${cloudflare.r2.bucket-name}")
     private String bucketName;
 
+    @Value("${cloudflare.r2.public-url}")
+    private String r2PublicUrl;
+
     private final VideoRepository videoRepository;
     private final FileStorageService fileStorageService;
-    private final software.amazon.awssdk.services.s3.S3Client s3Client;
+    private final S3Client s3Client;
 
     private final Semaphore ffmpegSemaphore = new Semaphore(3);
 
@@ -54,10 +54,9 @@ public class VideoServiceImpl implements VideoService {
     public void init() {
         try {
             Files.createDirectories(Paths.get(hslDir));
-            log.info("HLS directory verified/created at: {}", hslDir);
+            Files.createDirectories(Paths.get(uploadDir));
         } catch (IOException e) {
-            log.error("Could not create HLS directory!", e);
-            throw new RuntimeException("Could not create HLS directory", e);
+            throw new RuntimeException("Could not create directories", e);
         }
     }
 
@@ -81,14 +80,14 @@ public class VideoServiceImpl implements VideoService {
 
             return savedVideo;
         } catch (Exception e) {
-            log.error("Error while saving video", e);
             throw new RuntimeException("Error while saving video", e);
         }
     }
 
     @Override
     public Video get(String videoId) {
-        return videoRepository.findById(videoId).orElseThrow(() -> new RuntimeException("video not found"));
+        return videoRepository.findById(videoId)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
     }
 
     @Override
@@ -102,16 +101,46 @@ public class VideoServiceImpl implements VideoService {
             try {
                 ffmpegSemaphore.acquire();
 
-                log.info("Virtual Thread {} started processing videoId: {}", Thread.currentThread(), videoId);
                 runFFmpegConversion(videoId);
                 uploadFolderToCloud(videoId);
+
+                Video video = videoRepository.findById(videoId).orElse(null);
+                if (video != null) {
+
+                    String thumbFilename = video.getThumbnailUrl();
+                    if (thumbFilename != null && !thumbFilename.startsWith("http")) {
+                        Path thumbPath = Paths.get(uploadDir, thumbFilename);
+                        if (Files.exists(thumbPath)) {
+                            String thumbKey = "thumbnails/" + videoId + "/" + thumbFilename;
+                            String contentType = getContentType(thumbFilename);
+
+                            s3Client.putObject(PutObjectRequest.builder()
+                                    .bucket(bucketName)
+                                    .key(thumbKey)
+                                    .contentType(contentType)
+                                    .build(), thumbPath);
+
+                            video.setThumbnailUrl(r2PublicUrl + "/" + thumbKey);
+                            Files.deleteIfExists(thumbPath);
+                        }
+                    }
+
+                    video.setStatus("COMPLETED");
+                    video.setUrl(r2PublicUrl + "/videos/" + videoId + "/master.m3u8");
+                    videoRepository.save(video);
+
+                    if (video.getFilePath() != null) {
+                        Files.deleteIfExists(Paths.get(uploadDir, video.getFilePath()));
+                    }
+                }
+
                 FileSystemUtils.deleteRecursively(Paths.get(hslDir, videoId));
-                updateVideoStatus(videoId, "COMPLETED");
+
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 updateVideoStatus(videoId, "FAILED");
             } catch (Exception e) {
-                log.error("FFmpeg processing failed for {}", videoId, e);
+                log.error("Processing failed for {}", videoId, e);
                 updateVideoStatus(videoId, "FAILED");
             } finally {
                 ffmpegSemaphore.release();
@@ -120,62 +149,36 @@ public class VideoServiceImpl implements VideoService {
     }
 
     @Override
-    public Resource getThumbnailResource(String videoId) throws FileNotFoundException {
-        return getResourceFromVideo(videoId, Video::getThumbnailUrl, "Thumbnail URL is not set for videoId: " + videoId, "Thumbnail not found or is not readable for videoId: " + videoId);
+    public Resource getThumbnailResource(String videoId) {
+        throw new UnsupportedOperationException("Thumbnails are served directly from Cloudflare R2.");
     }
 
     @Override
-    public Resource getVideoResource(String videoId) throws FileNotFoundException {
-        return getResourceFromVideo(videoId, Video::getFilePath, "Video file path is not set for videoId: " + videoId, "Video file not found or is not readable for videoId: " + videoId);
+    public Resource getVideoResource(String videoId) {
+        throw new UnsupportedOperationException("Videos are served directly from Cloudflare R2.");
     }
 
     @Override
-    public Resource getHlsResource(String videoId, String fileName) throws FileNotFoundException {
-        Path hlsPath = Paths.get(hslDir, videoId, fileName);
-        Resource resource = new FileSystemResource(hlsPath);
-
-        if (!resource.exists() || !resource.isReadable()) {
-            throw new FileNotFoundException("HLS resource not found or is not readable: " + fileName + " for videoId: " + videoId);
-        }
-        return resource;
-    }
-
-    private Resource getResourceFromVideo(String videoId, Function<Video, String> pathExtractor, String pathMissingError, String fileMissingError) throws FileNotFoundException {
-        Video video = videoRepository.findById(videoId)
-                .orElseThrow(() -> new FileNotFoundException("Video not found with id: " + videoId));
-
-        String filePath = pathExtractor.apply(video);
-        if (!StringUtils.hasText(filePath)) {
-            throw new FileNotFoundException(pathMissingError);
-        }
-
-        Path resourcePath = Paths.get(uploadDir).resolve(filePath);
-        Resource resource = new FileSystemResource(resourcePath);
-
-        if (!resource.exists() || !resource.isReadable()) {
-            throw new FileNotFoundException(fileMissingError);
-        }
-        return resource;
+    public Resource getHlsResource(String videoId, String fileName) {
+        throw new UnsupportedOperationException("HLS streaming is served directly from Cloudflare R2.");
     }
 
     private double getVideoDuration(Path videoPath) {
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(
-                    "ffprobe",
-                    "-v", "error",
-                    "-show_entries", "format=duration",
-                    "-of", "default=noprint_wrappers=1:nokey=1",
-                    videoPath.toString()
+                    "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1", videoPath.toString()
             );
             Process process = processBuilder.start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line = reader.readLine();
-            process.waitFor();
-            if (line != null) {
-                return Double.parseDouble(line);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line = reader.readLine();
+                process.waitFor();
+                if (line != null) {
+                    return Double.parseDouble(line);
+                }
             }
-        } catch (IOException | InterruptedException e) {
-            log.error("Error getting video duration", e);
+        } catch (Exception e) {
+            log.error("Error getting duration", e);
         }
         return 0.0;
     }
@@ -198,13 +201,9 @@ public class VideoServiceImpl implements VideoService {
         );
 
         Process process = pb.start();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            while (reader.readLine() != null) {
-            }
-
-            int exitCode = process.waitFor();
-            if (exitCode != 0) throw new RuntimeException("FFmpeg exit code " + exitCode);
-        }
+        process.getInputStream().transferTo(System.out);
+        int exitCode = process.waitFor();
+        if (exitCode != 0) throw new RuntimeException("FFmpeg exit code " + exitCode);
     }
 
     private void updateVideoStatus(String videoId, String status) {
@@ -218,15 +217,24 @@ public class VideoServiceImpl implements VideoService {
         Path hlsPath = Paths.get(hslDir, videoId);
         try (Stream<Path> paths = Files.walk(hlsPath)) {
             paths.filter(Files::isRegularFile).forEach(path -> {
-                String key = "videos/" + videoId + "/" + path.getFileName().toString();
+                String fileName = path.getFileName().toString();
+                String key = "videos/" + videoId + "/" + fileName;
+
                 s3Client.putObject(PutObjectRequest.builder()
-                                .bucket(bucketName)
-                                .key(key)
-                                .contentType(key.endsWith(".m3u8") ? "application/x-mpegURL" : "video/MP2T")
-                                .build(),
-                        path);
+                        .bucket(bucketName)
+                        .key(key)
+                        .contentType(getContentType(fileName))
+                        .build(), path);
             });
         }
     }
 
+    private String getContentType(String filename) {
+        if (filename.endsWith(".m3u8")) return "application/x-mpegURL";
+        if (filename.endsWith(".ts")) return "video/MP2T";
+        if (filename.endsWith(".mp4")) return "video/mp4";
+        if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+        if (filename.endsWith(".png")) return "image/png";
+        return "application/octet-stream";
+    }
 }

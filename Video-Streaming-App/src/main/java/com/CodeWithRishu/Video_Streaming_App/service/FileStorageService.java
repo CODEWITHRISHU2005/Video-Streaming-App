@@ -21,7 +21,7 @@ import java.util.UUID;
 public class FileStorageService {
 
     private static final String FILENAME_SEPARATOR = "_";
-    private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+    private static final long MAX_FILE_SIZE = 2L * 1024 * 1024 * 1024; // 100MB
 
     private final Path fileStorageLocation;
 

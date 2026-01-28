@@ -18,6 +18,7 @@ import java.util.List;
 @Builder
 public class Video {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @JsonProperty("video_id")
     private String videoId;
 
@@ -32,6 +33,8 @@ public class Video {
     private String contentType;
 
     private String filePath;
+
+    private String url;
 
     private String thumbnailUrl;
 
