@@ -18,7 +18,6 @@ import java.util.List;
 @Builder
 public class Video {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @JsonProperty("video_id")
     private String videoId;
 
