@@ -8,7 +8,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileSystemUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,7 +25,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -152,20 +150,6 @@ public class VideoServiceImpl implements VideoService {
         }, Executors.newVirtualThreadPerTaskExecutor());
     }
 
-    @Override
-    public Resource getThumbnailResource(String videoId) {
-        throw new UnsupportedOperationException("Thumbnails are served directly from Cloudflare R2.");
-    }
-
-    @Override
-    public Resource getVideoResource(String videoId) {
-        throw new UnsupportedOperationException("Videos are served directly from Cloudflare R2.");
-    }
-
-    @Override
-    public Resource getHlsResource(String videoId, String fileName) {
-        throw new UnsupportedOperationException("HLS streaming is served directly from Cloudflare R2.");
-    }
 
     private double getVideoDuration(Path videoPath) {
         try {
@@ -176,8 +160,7 @@ public class VideoServiceImpl implements VideoService {
             Process process = processBuilder.start();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 return reader.lines()
-                        .findFirst()
-                        .map(Double::parseDouble)
+                        .findFirst().map(Double::parseDouble)
                         .orElse(0.0);
             }
         } catch (Exception e) {
@@ -192,37 +175,97 @@ public class VideoServiceImpl implements VideoService {
         Path outputPath = Paths.get(hslDir, videoId);
         Files.createDirectories(outputPath);
 
-        String segmentPattern = outputPath.resolve("segment_%3d.ts").toString();
-        String masterPlaylist = outputPath.resolve("master.m3u8").toString();
+        log.info("Starting adaptive streaming conversion for videoId: {}", videoId);
+
+        Files.createDirectories(outputPath.resolve("1080p"));
+        Files.createDirectories(outputPath.resolve("720p"));
+        Files.createDirectories(outputPath.resolve("480p"));
+
+        try {
+            generateVariant(videoPath, outputPath.resolve("1080p"), "1920:1080", "5000k", "192k", "23");
+            log.info("1080p variant completed");
+        } catch (Exception e) {
+            log.warn("Failed to generate 1080p variant: {}", e.getMessage());
+        }
+
+        try {
+            generateVariant(videoPath, outputPath.resolve("720p"), "1280:720", "3000k", "128k", "25");
+            log.info("720p variant completed");
+        } catch (Exception e) {
+            log.warn("Failed to generate 720p variant: {}", e.getMessage());
+        }
+
+        try {
+            generateVariant(videoPath, outputPath.resolve("480p"), "854:480", "1500k", "96k", "28");
+            log.info("480p variant completed");
+        } catch (Exception e) {
+            log.warn("Failed to generate 480p variant: {}", e.getMessage());
+        }
+
+        createAdaptiveMasterPlaylist(outputPath);
+
+        log.info("Adaptive streaming conversion completed for videoId: {}", videoId);
+    }
+
+    private void generateVariant(Path input, Path output, String resolution,
+                                 String videoBitrate, String audioBitrate, String crf) throws Exception {
+
+        log.debug("Generating variant: resolution={}, bitrate={}", resolution, videoBitrate);
 
         ProcessBuilder pb = new ProcessBuilder(
-                "ffmpeg", "-i", videoPath.toString(),
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-                "-threads", "1", "-c:a", "aac", "-b:a", "128k",
-                "-f", "hls", "-hls_time", "6", "-hls_list_size", "0",
-                "-hls_segment_filename", segmentPattern, masterPlaylist
+                "ffmpeg", "-i", input.toString(),
+                "-vf", "scale=" + resolution + ":force_original_aspect_ratio=decrease",
+                "-c:v", "libx264",
+                "-preset", "medium",
+                "-crf", crf,
+                "-maxrate", videoBitrate,
+                "-bufsize", String.valueOf(Integer.parseInt(videoBitrate.replace("k", "")) * 2) + "k",
+                "-c:a", "aac",
+                "-b:a", audioBitrate,
+                "-ac", "2",
+                "-f", "hls",
+                "-hls_time", "6",
+                "-hls_list_size", "0",
+                "-hls_segment_filename", output.resolve("segment_%03d.ts").toString(),
+                output.resolve("playlist.m3u8").toString()
         );
 
+        pb.redirectErrorStream(true);
         Process process = pb.start();
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-             BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-
-            reader.lines().forEach(line -> log.debug("FFmpeg output: {}", line));
-            errorReader.lines().forEach(line -> log.debug("FFmpeg error: {}", line));
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            reader.lines().forEach(line -> log.debug("FFmpeg [{}]: {}", resolution, line));
         }
 
         int exitCode = process.waitFor();
         if (exitCode != 0) {
-            throw new RuntimeException("FFmpeg failed with exit code " + exitCode);
+            throw new RuntimeException("FFmpeg failed for resolution " + resolution + " with exit code " + exitCode);
+        }
+    }
+
+    private void createAdaptiveMasterPlaylist(Path outputPath) throws IOException {
+        Path masterPlaylist = outputPath.resolve("master.m3u8");
+
+        StringBuilder content = new StringBuilder("#EXTM3U\n#EXT-X-VERSION:3\n\n");
+
+        if (Files.exists(outputPath.resolve("1080p/playlist.m3u8"))) {
+            content.append("#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,NAME=\"1080p\"\n");
+            content.append("1080p/playlist.m3u8\n\n");
         }
 
-        Path m3u8Path = Paths.get(masterPlaylist);
-        if (!Files.exists(m3u8Path)) {
-            throw new RuntimeException("master.m3u8 was not generated by FFmpeg");
+        if (Files.exists(outputPath.resolve("720p/playlist.m3u8"))) {
+            content.append("#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720,NAME=\"720p\"\n");
+            content.append("720p/playlist.m3u8\n\n");
         }
 
-        log.info("FFmpeg conversion completed successfully for videoId: {}", videoId);
+        if (Files.exists(outputPath.resolve("480p/playlist.m3u8"))) {
+            content.append("#EXT-X-STREAM-INF:BANDWIDTH=1500000,RESOLUTION=854x480,NAME=\"480p\"\n");
+            content.append("480p/playlist.m3u8\n\n");
+        }
+
+        Files.writeString(masterPlaylist, content.toString());
+        log.info("Master playlist created with {} variants",
+                content.toString().split("EXT-X-STREAM-INF").length - 1);
     }
 
     private void updateVideoStatus(String videoId, String status) {

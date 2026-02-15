@@ -16,10 +16,4 @@ public interface VideoService {
 
     void processVideo(String videoId);
 
-    Resource getThumbnailResource(String videoId);
-
-    Resource getVideoResource(String videoId);
-
-    Resource getHlsResource(String videoId, String fileName);
-
 }
