@@ -3,7 +3,7 @@ import { FaPlay, FaClock, FaEye, FaUpload, FaThumbsUp, FaCommentDots } from 'rea
 import { Button, Card } from 'flowbite-react';
 import VideoGrid from '../components/video/VideoGrid';
 import { useVideo } from '../context/VideoContext';
-import { getVideoThumbnail, formatUploadDate, formatDuration } from '../utils/videoUtils';
+import { formatUploadDate, formatDuration } from '../utils/videoUtils';
 import { mapVideoDetails } from '../utils/mapVideoDetails';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -53,7 +53,7 @@ export default function HomePage() {
         
         return {
           ...mapped,
-          thumbnailUrl: mapped.thumbnailUrl || getVideoThumbnail(mapped.id),
+          thumbnailUrl: mapped.thumbnailUrl, // Use direct thumbnail URL from CDN
           duration: finalDuration
         };
       }),

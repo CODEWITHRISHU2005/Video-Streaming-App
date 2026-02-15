@@ -145,6 +145,8 @@ export const validateImageFile = (file) => {
 };
 
 // Generate video thumbnail URL
+// @deprecated - Use thumbnailUrl from video object directly (CDN URL)
+// This function is kept for backward compatibility but should not be used
 export const getVideoThumbnail = (videoId) => {
   if (videoId) {
     return `/api/videos/thumbnail/${videoId}`;

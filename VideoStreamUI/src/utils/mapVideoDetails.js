@@ -102,11 +102,12 @@ export function mapVideoDetails(input) {
 
   // ========== CLOUDFLARE R2 URLS ==========
   // Prefer CDN URLs over direct R2 URLs for better performance
+  // Use direct thumbnail URL from backend (CDN URL) - no backend proxy needed
   const thumbnailUrl = details.thumbnailCdnUrl ?? 
                        details.thumbnail_cdn_url ?? 
                        details.thumbnailUrl ?? 
                        details.thumbnail_url ?? 
-                       `${API_BASE}/thumbnail/${id}`;
+                       'https://images.unsplash.com/photo-1521335629791-ce4aec67dd53?q=80&w=600&auto=format&fit=crop'; // Default placeholder
 
   const videoUrl = details.videoCdnUrl ?? 
                    details.video_cdn_url ?? 
