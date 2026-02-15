@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: snapbuy-app
+    name: videostream-app
     plan: free
     dockerfilePath: dockerfilePath: ./Video-Streaming-App/Dockerfile
     runtime: docker
