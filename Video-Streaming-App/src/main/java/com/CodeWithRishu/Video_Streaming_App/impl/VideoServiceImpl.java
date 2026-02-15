@@ -293,10 +293,11 @@ public class VideoServiceImpl implements VideoService {
             log.info("Found {} files to upload", filesToUpload.size());
 
             filesToUpload.forEach(path -> {
-                String fileName = path.getFileName().toString();
-                String key = "videos/" + videoId + "/" + fileName;
+                Path relativePath = hlsPath.relativize(path);
+                String key = "videos/" + videoId + "/" + relativePath.toString().replace("\\", "/");
+
                 log.info("Uploading: {}", key);
-                uploadFileToS3(key, path, getContentType(fileName));
+                uploadFileToS3(key, path, getContentType(path.getFileName().toString()));
             });
         }
 
