@@ -35,13 +35,10 @@ public class VideoServiceImpl implements VideoService {
 
     @Value("${file.video.upload-dir}")
     private String uploadDir;
-
     @Value("${file.video.hsl-dir}")
     private String hslDir;
-
     @Value("${cloudflare.r2.bucket-name}")
     private String bucketName;
-
     @Value("${cloudflare.r2.public-url}")
     private String r2PublicUrl;
 
@@ -64,16 +61,26 @@ public class VideoServiceImpl implements VideoService {
     @Override
     public Video save(Video video, MultipartFile videoFile, MultipartFile thumbnailFile) {
         try {
-            String videoFilename = fileStorageService.storeFile(videoFile);
-            String thumbnailFilename = fileStorageService.storeFile(thumbnailFile);
+            String videoFilename = Optional.ofNullable(videoFile)
+                    .map(fileStorageService::storeFile)
+                    .orElseThrow(() -> new IllegalArgumentException("Video file cannot be null"));
+
+            String thumbnailFilename = Optional.ofNullable(thumbnailFile)
+                    .map(fileStorageService::storeFile)
+                    .orElseThrow(() -> new IllegalArgumentException("Thumbnail file cannot be null"));
 
             video.setContentType(videoFile.getContentType());
             video.setFilePath(videoFilename);
             video.setThumbnailUrl(thumbnailFilename);
             video.setStatus("PROCESSING");
 
-            Path videoPath = Paths.get(uploadDir, videoFilename);
-            video.setDuration(getVideoDuration(videoPath));
+            Optional.ofNullable(videoFilename)
+                    .map(filename -> Paths.get(uploadDir, filename))
+                    .filter(Files::exists)
+                    .ifPresent(path -> {
+                        double duration = getVideoDuration(path);
+                        video.setDuration(duration);
+                    });
 
             Video savedVideo = videoRepository.save(video);
 
@@ -229,11 +236,17 @@ public class VideoServiceImpl implements VideoService {
     }
 
     private String getContentType(String filename) {
-        if (filename.endsWith(".m3u8")) return "application/x-mpegURL";
-        if (filename.endsWith(".ts")) return "video/MP2T";
-        if (filename.endsWith(".mp4")) return "video/mp4";
-        if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
-        if (filename.endsWith(".png")) return "image/png";
-        return "application/octet-stream";
+        int dotIndex = filename.lastIndexOf('.');
+        String extension = (dotIndex > 0) ? filename.substring(dotIndex + 1).toLowerCase() : "";
+
+        return switch (extension) {
+            case "m3u8" -> "application/x-mpegURL";
+            case "ts" -> "video/MP2T";
+            case "mp4" -> "video/mp4";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            default -> "application/octet-stream";
+        };
     }
+
 }

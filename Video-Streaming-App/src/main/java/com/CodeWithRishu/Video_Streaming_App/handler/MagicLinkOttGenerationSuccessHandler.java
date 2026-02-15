@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -30,67 +31,85 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
     @Value("${ott.token.expiry.seconds}")
     private int magicLinkExpirySeconds;
 
-    private final OneTimeTokenGenerationSuccessHandler redirectHandler = new RedirectOneTimeTokenGenerationSuccessHandler("/ott/sent");
+    private final OneTimeTokenGenerationSuccessHandler redirectHandler =
+            new RedirectOneTimeTokenGenerationSuccessHandler("/ott/sent");
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, OneTimeToken oneTimeToken)
             throws IOException, ServletException {
 
-        UriComponentsBuilder builder = UriComponentsBuilder
+        String magicLink = buildMagicLink(request, oneTimeToken);
+        log.info("Generated magic link for user {}: {}", oneTimeToken.getUsername(), magicLink);
+
+        getUserEmail(oneTimeToken.getUsername())
+                .ifPresentOrElse(
+                        email -> sendMagicLinkAsync(email, magicLink, oneTimeToken.getUsername()),
+                        () -> log.warn("No email found for user: {}", oneTimeToken.getUsername())
+                );
+
+        this.redirectHandler.handle(request, response, oneTimeToken);
+    }
+
+    private String buildMagicLink(HttpServletRequest request, OneTimeToken oneTimeToken) {
+        return UriComponentsBuilder
                 .fromHttpUrl(UrlUtils.buildFullRequestUrl(request))
                 .replacePath(request.getContextPath())
                 .replaceQuery(null)
                 .fragment(null)
                 .path("/login/ott")
-                .queryParam("token", oneTimeToken.getTokenValue());
-
-        String magicLink = builder.toUriString();
-        log.info("Generated magic link for user {}: {}", oneTimeToken.getUsername(), magicLink);
-
-        String userEmail = getUserEmail(oneTimeToken.getUsername());
-
-        CompletableFuture.runAsync(() -> sendMagicLinkEmail(userEmail, magicLink, oneTimeToken.getUsername()))
-                .exceptionally(throwable -> {
-                    log.error("Failed to send magic link email to user: {}", oneTimeToken.getUsername(), throwable);
-                    return null;
-                });
-        this.redirectHandler.handle(request, response, oneTimeToken);
+                .queryParam("token", oneTimeToken.getTokenValue())
+                .toUriString();
     }
 
-    private String getUserEmail(String username) {
-        try {
-            var userDetails = userDetailsService.loadUserByUsername(username);
-            if (userDetails instanceof CustomUserDetails customUser)
-                return customUser.getUsername();
-        } catch (Exception e) {
-            log.error("Error retrieving email for username: {}", username, e);
-            throw new RuntimeException("Could not retrieve user email", e);
-        }
-        return "";
+    private Optional<String> getUserEmail(String username) {
+        return Optional.ofNullable(username)
+                .flatMap(user -> {
+                    try {
+                        return Optional.ofNullable(userDetailsService.loadUserByUsername(user));
+                    } catch (Exception e) {
+                        log.error("Error retrieving email for username: {}", user, e);
+                        return Optional.empty();
+                    }
+                })
+                .filter(CustomUserDetails.class::isInstance)
+                .map(CustomUserDetails.class::cast)
+                .map(CustomUserDetails::getUsername)
+                .filter(email -> !email.isBlank());
+    }
+
+    private void sendMagicLinkAsync(String recipientEmail, String magicLink, String username) {
+        CompletableFuture.runAsync(() -> sendMagicLinkEmail(recipientEmail, magicLink, username))
+                .exceptionally(throwable -> {
+                    log.error("Failed to send magic link email to user: {}", username, throwable);
+                    return null;
+                });
     }
 
     private void sendMagicLinkEmail(String recipientEmail, String magicLink, String username) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(recipientEmail);
-            message.setSubject("Your SnapBuy Magic Link - Sign In Securely");
-            message.setText(buildEmailContent(magicLink, username));
-            message.setFrom("noreply@snapbuy.com"); // Configure this in application.properties
-
+            SimpleMailMessage message = createEmailMessage(recipientEmail, magicLink, username);
             mailSender.send(message);
             log.info("Magic link email sent successfully to: {}", recipientEmail);
-
         } catch (Exception e) {
             log.error("Failed to send magic link email to: {}", recipientEmail, e);
             throw new RuntimeException("Failed to send magic link email", e);
         }
     }
 
+    private SimpleMailMessage createEmailMessage(String recipientEmail, String magicLink, String username) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(recipientEmail);
+        message.setSubject("Your VideoStream Magic Link - Sign In Securely");
+        message.setText(buildEmailContent(magicLink, username));
+        message.setFrom("noreply@videostream.com");
+        return message;
+    }
+
     private String buildEmailContent(String magicLink, String username) {
         return String.format("""
                 Hi %s,
                 
-                You requested to sign in to your SnapBuy account. Click the secure link below to sign in:
+                You requested to sign in to your VideoStream account. Click the secure link below to sign in:
                 
                 %s
                 
@@ -99,11 +118,10 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
                 If you didn't request this login, please ignore this email.
                 
                 Best regards,
-                The SnapBuy Team
+                The VideoStream Team
                 
                 ---
                 This is an automated message. Please do not reply to this email.
                 """, username, magicLink, magicLinkExpirySeconds / 60);
     }
-
 }

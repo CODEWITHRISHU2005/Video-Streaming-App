@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.util.Set;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -65,36 +65,47 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String redirectUrl = String.format("%s?accessToken=%s&refreshToken=%s",
                 frontendSuccessRedirectURL, accessToken, refreshToken.getToken());
 
-        log.info("Login/Signup success for {}",
-                user.getEmail());
-
+        log.info("Login/Signup success for {}", user.getEmail());
         response.sendRedirect(redirectUrl);
     }
 
     private User processOAuth2User(OAuth2User oAuth2User, String registrationId) {
         String email = oAuth2User.getAttribute("email");
         String name = oAuth2User.getAttribute("name");
-        String image = oAuth2User.getAttribute("picture");
+        String imageUrl = oAuth2User.getAttribute("picture");
 
-        return userRepository.findByEmail(email).map(existingUser -> {
-            if (existingUser.getName() == null) existingUser.setName(name);
-            if (existingUser.getProfileImage() == null) {
-                assert image != null;
-                existingUser.setProfileImage(image.getBytes());
-            }
-            existingUser.setProvider(Provider.valueOf(registrationId.toUpperCase()));
+        User user = userRepository.findByEmail(email)
+                .map(existingUser -> updateExistingUser(existingUser, name, imageUrl, registrationId))
+                .orElseGet(() -> createNewUser(email, name, imageUrl, registrationId));
 
-            return userRepository.save(existingUser);
-        }).orElseGet(() -> {
-            assert image != null;
-            User newUser = User.builder()
-                    .email(email)
-                    .name(name)
-                    .provider(Provider.GOOGLE)
-                    .profileImage(image.getBytes())
-                    .build();
-            return userRepository.save(newUser);
-        });
+        return userRepository.save(user);
+    }
+
+    private User updateExistingUser(User existingUser, String name, String imageUrl, String registrationId) {
+        Optional.ofNullable(name)
+                .filter(n -> existingUser.getName() == null)
+                .ifPresent(existingUser::setName);
+
+        Optional.ofNullable(imageUrl)
+                .filter(url -> existingUser.getProfileImage() == null)
+                .map(String::getBytes)
+                .ifPresent(existingUser::setProfileImage);
+
+        Optional.ofNullable(registrationId)
+                .map(String::toUpperCase)
+                .map(Provider::valueOf)
+                .ifPresent(existingUser::setProvider);
+
+        return existingUser;
+    }
+
+    private User createNewUser(String email, String name, String imageUrl, String registrationId) {
+        return User.builder()
+                .email(email)
+                .name(name)
+                .provider(Provider.valueOf(registrationId.toUpperCase()))
+                .profileImage(imageUrl != null ? imageUrl.getBytes() : null)
+                .build();
     }
 
 }
