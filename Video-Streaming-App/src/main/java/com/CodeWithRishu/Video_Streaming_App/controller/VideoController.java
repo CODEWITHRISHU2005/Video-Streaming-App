@@ -82,10 +82,14 @@ public class VideoController {
 
     @GetMapping("/thumbnail/{videoId}")
     public ResponseEntity<Void> getThumbnail(@PathVariable String videoId) {
-        String cloudUrl = String.format("%s/videos/%s/thumbnail.jpg", r2PublicUrl, videoId);
+        Video video = videoService.get(videoId);
+
+        if (video.getThumbnailUrl() == null || video.getThumbnailUrl().isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
 
         return ResponseEntity.status(HttpStatus.FOUND)
-                .location(URI.create(cloudUrl))
+                .location(URI.create(video.getThumbnailUrl()))
                 .build();
     }
 
