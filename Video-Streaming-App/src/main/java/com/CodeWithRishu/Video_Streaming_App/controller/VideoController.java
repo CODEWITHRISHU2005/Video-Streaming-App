@@ -76,8 +76,8 @@ public class VideoController {
     public ResponseEntity<Void> getThumbnail(@PathVariable String videoId) {
         return Stream.ofNullable(videoService.get(videoId))
                 .map(Video::getThumbnailUrl)
-                .filter(url -> !url.isEmpty())
-                .map(URI::create)
+                .filter(url -> url != null && !url.isEmpty())
+                .map(url -> URI.create(url.replace(" ", "%20")))
                 .map(uri -> ResponseEntity.status(HttpStatus.FOUND).location(uri).<Void>build())
                 .findFirst()
                 .orElseGet(() -> ResponseEntity.notFound().build());
