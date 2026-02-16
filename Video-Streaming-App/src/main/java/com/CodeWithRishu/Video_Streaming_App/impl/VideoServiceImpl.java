@@ -227,8 +227,9 @@ public class VideoServiceImpl implements VideoService {
         log.info("Generating variant: resolution={}, bitrate={}", resolution, videoBitrate);
 
         ProcessBuilder pb = new ProcessBuilder(
-                "ffmpeg", "-i", input.toString(),
-                "-vf", "scale=" + resolution + ":force_original_aspect_ratio=decrease",
+                "ffmpeg",
+                "-i", input.toString(),
+                "-vf", "scale=" + resolution + ":force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
                 "-c:v", "libx264",
                 "-preset", "medium",
                 "-crf", crf,
