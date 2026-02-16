@@ -21,6 +21,7 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
 
 
   const handleImageError = () => {
+    console.warn(`Thumbnail failed to load for video: ${video.id}`, video.thumbnailUrl);
     setImageError(true);
   };
 
@@ -39,8 +40,14 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
   };
 
   const defaultThumbnail = (
-    <div className="w-full h-32 bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center">
-      <FaPlay className="text-white text-2xl" />
+    <div className="w-full h-48 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 flex flex-col items-center justify-center p-4 text-white relative overflow-hidden">
+      {/* Animated background pattern */}
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+      <FaPlay className="text-white text-4xl mb-3 drop-shadow-lg relative z-10" />
+      <span className="text-sm font-semibold text-center line-clamp-2 relative z-10">{video.title}</span>
     </div>
   );
 

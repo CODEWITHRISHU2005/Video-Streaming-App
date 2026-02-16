@@ -27,18 +27,16 @@ import java.util.concurrent.Semaphore;
 @RequiredArgsConstructor
 public class VideoServiceImpl implements VideoService {
 
+    private final VideoRepository videoRepository;
+    private final FileStorageService fileStorageService;
+    private final VideoServiceHelper helper;
+    private final Semaphore ffmpegSemaphore = new Semaphore(3);
     @Value("${file.video.upload-dir}")
     private String uploadDir;
     @Value("${file.video.hsl-dir}")
     private String hslDir;
     @Value("${cloudflare.r2.public-url}")
     private String r2PublicUrl;
-
-    private final VideoRepository videoRepository;
-    private final FileStorageService fileStorageService;
-    private final VideoServiceHelper helper;
-
-    private final Semaphore ffmpegSemaphore = new Semaphore(3);
 
     @PostConstruct
     public void init() {
@@ -115,7 +113,10 @@ public class VideoServiceImpl implements VideoService {
                                 helper.uploadFileToS3(thumbKey, path, VideoServiceHelper.getContentType(path.getFileName().toString()));
 
                                 video.setThumbnailUrl(r2PublicUrl + "/" + thumbKey);
-                                try { Files.deleteIfExists(path); } catch (IOException ignored) {}
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (IOException ignored) {
+                                }
                             });
 
                     video.setStatus("COMPLETED");
@@ -125,7 +126,10 @@ public class VideoServiceImpl implements VideoService {
                     Optional.ofNullable(video.getFilePath())
                             .map(filename -> Paths.get(uploadDir, filename))
                             .ifPresent(path -> {
-                                try { Files.deleteIfExists(path); } catch (IOException ignored) {}
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (IOException ignored) {
+                                }
                             });
                 });
 

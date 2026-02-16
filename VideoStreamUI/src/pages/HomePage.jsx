@@ -228,6 +228,10 @@ export default function HomePage() {
                   alt={`Thumbnail of ${video.title}`}
                   className="h-48 w-full object-cover transition-all duration-200"
                   loading="lazy"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://images.unsplash.com/photo-1521335629791-ce4aec67dd53?q=80&w=600&auto=format&fit=crop';
+                  }}
                 />
                 {video.duration !== undefined && video.duration !== null && (
                   <div className="absolute bottom-3 left-3 flex items-center gap-2 text-xs font-semibold">

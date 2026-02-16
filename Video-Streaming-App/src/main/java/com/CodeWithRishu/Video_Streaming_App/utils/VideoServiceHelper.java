@@ -25,6 +25,8 @@ import java.util.stream.Stream;
 @Slf4j
 public class VideoServiceHelper {
 
+    private final VideoRepository videoRepository;
+    private final S3Client s3Client;
     @Value("${file.video.upload-dir}")
     private String uploadDir;
     @Value("${file.video.hsl-dir}")
@@ -32,8 +34,19 @@ public class VideoServiceHelper {
     @Value("${cloudflare.r2.bucket-name}")
     private String bucketName;
 
-    private final VideoRepository videoRepository;
-    private final S3Client s3Client;
+    public static String getContentType(String filename) {
+        int dotIndex = filename.lastIndexOf('.');
+        String extension = (dotIndex > 0) ? filename.substring(dotIndex + 1).toLowerCase() : "";
+
+        return switch (extension) {
+            case "m3u8" -> "application/x-mpegURL";
+            case "ts" -> "video/MP2T";
+            case "mp4" -> "video/mp4";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            default -> "application/octet-stream";
+        };
+    }
 
     public double getVideoDuration(Path videoPath) {
         try {
@@ -92,7 +105,7 @@ public class VideoServiceHelper {
                 "-preset", "medium",
                 "-crf", crf,
                 "-maxrate", videoBitrate,
-                "-bufsize", String.valueOf(Integer.parseInt(videoBitrate.replace("k", "")) * 2) + "k",
+                "-bufsize", Integer.parseInt(videoBitrate.replace("k", "")) * 2 + "k",
                 "-c:a", "aac",
                 "-b:a", audioBitrate,
                 "-ac", "2",
@@ -183,19 +196,5 @@ public class VideoServiceHelper {
                 .key(key)
                 .contentType(contentType)
                 .build(), path);
-    }
-
-    public static String getContentType(String filename) {
-        int dotIndex = filename.lastIndexOf('.');
-        String extension = (dotIndex > 0) ? filename.substring(dotIndex + 1).toLowerCase() : "";
-
-        return switch (extension) {
-            case "m3u8" -> "application/x-mpegURL";
-            case "ts" -> "video/MP2T";
-            case "mp4" -> "video/mp4";
-            case "jpg", "jpeg" -> "image/jpeg";
-            case "png" -> "image/png";
-            default -> "application/octet-stream";
-        };
     }
 }
