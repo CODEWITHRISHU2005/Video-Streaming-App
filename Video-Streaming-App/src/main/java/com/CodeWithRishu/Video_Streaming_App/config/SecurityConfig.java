@@ -38,7 +38,10 @@ public class SecurityConfig {
     private final CustomUserDetailsService customUserDetailsService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final MailSender mailSender;
-
+    @Value("${app.auth.failure-redirect}")
+    private String failureRedirectURL;
+    @Value("${app.auth.success-redirect}")
+    private String successRedirectURL;
 
     public SecurityConfig(
             UserDetailsService userDetailsService, CustomUserDetailsService customUserDetailsService,
@@ -50,12 +53,6 @@ public class SecurityConfig {
         this.mailSender = mailSender;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
     }
-
-    @Value("${app.auth.failure-redirect}")
-    private String failureRedirectURL;
-
-    @Value("${app.auth.success-redirect}")
-    private String successRedirectURL;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
@@ -101,7 +98,6 @@ public class SecurityConfig {
 
                     if (message != null && message.trim().equals("token_expired")) {
                         resp.getWriter().println(om.writeValueAsString(Map.of("message", "token_expired")));
-                        return;
                     } else if (message != null && message.trim().equals("invalid_token")) {
                         resp.getWriter().println(om.writeValueAsString(Map.of("message", "invalid_token")));
                     } else {

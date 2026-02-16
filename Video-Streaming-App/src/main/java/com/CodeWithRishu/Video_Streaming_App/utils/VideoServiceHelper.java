@@ -60,54 +60,27 @@ public class VideoServiceHelper {
         Path outputPath = Paths.get(hslDir, videoId);
         Files.createDirectories(outputPath);
 
-        log.info("Starting adaptive streaming conversion for videoId: {}", videoId);
+        log.info("Starting video conversion for videoId: {}", videoId);
         log.info("Input video path: {}", videoPath);
         log.info("Output HLS path: {}", outputPath);
 
-        Files.createDirectories(outputPath.resolve("1080p"));
         Files.createDirectories(outputPath.resolve("720p"));
-        Files.createDirectories(outputPath.resolve("480p"));
-
-        boolean has1080p = false;
-        boolean has720p = false;
-        boolean has480p = false;
-
-        try {
-            generateVariant(videoPath, outputPath.resolve("1080p"), "1920:1080", "5000k", "192k", "23");
-            log.info("✓ 1080p variant completed");
-            has1080p = true;
-        } catch (Exception e) {
-            log.warn("✗ Failed to generate 1080p variant: {}", e.getMessage());
-        }
 
         try {
             generateVariant(videoPath, outputPath.resolve("720p"), "1280:720", "3000k", "128k", "25");
             log.info("✓ 720p variant completed");
-            has720p = true;
         } catch (Exception e) {
-            log.warn("✗ Failed to generate 720p variant: {}", e.getMessage());
+            log.error("✗ Failed to generate 720p variant: {}", e.getMessage());
+            throw new RuntimeException("Failed to encode video: " + e.getMessage());
         }
 
-        try {
-            generateVariant(videoPath, outputPath.resolve("480p"), "854:480", "1500k", "96k", "28");
-            log.info("✓ 480p variant completed");
-            has480p = true;
-        } catch (Exception e) {
-            log.warn("✗ Failed to generate 480p variant: {}", e.getMessage());
-        }
+        createSimpleMasterPlaylist(outputPath);
 
-        if (!has1080p && !has720p && !has480p) {
-            throw new RuntimeException("All FFmpeg variants failed for videoId: " + videoId);
-        }
-
-        createAdaptiveMasterPlaylist(outputPath);
-
-        log.info("Adaptive streaming conversion completed for videoId: {} ({} variants)",
-                videoId, (has1080p ? 1 : 0) + (has720p ? 1 : 0) + (has480p ? 1 : 0));
+        log.info("Video conversion completed for videoId: {}", videoId);
     }
 
     public void generateVariant(Path input, Path output, String resolution,
-                                 String videoBitrate, String audioBitrate, String crf) throws Exception {
+                                String videoBitrate, String audioBitrate, String crf) throws Exception {
 
         log.info("Generating variant: resolution={}, bitrate={}", resolution, videoBitrate);
 
@@ -130,74 +103,38 @@ public class VideoServiceHelper {
                 output.resolve("playlist.m3u8").toString()
         );
 
+        pb.redirectErrorStream(true);
         Process process = pb.start();
 
-        StringBuilder errorOutput = new StringBuilder();
-        StringBuilder standardOutput = new StringBuilder();
-
-        Thread errorThread = new Thread(() -> {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-                reader.lines().forEach(line -> {
-                    log.error("FFmpeg ERROR [{}]: {}", resolution, line);
-                    errorOutput.append(line).append("\n");
-                });
-            } catch (IOException e) {
-                log.error("Error reading FFmpeg error stream", e);
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("frame=") && line.contains("fps=")) {
+                    log.debug("FFmpeg progress: {}", line.trim());
+                }
             }
-        });
-
-        Thread outputThread = new Thread(() -> {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                reader.lines().forEach(line -> {
-                    log.debug("FFmpeg [{}]: {}", resolution, line);
-                    standardOutput.append(line).append("\n");
-                });
-            } catch (IOException e) {
-                log.error("Error reading FFmpeg output stream", e);
-            }
-        });
-
-        errorThread.start();
-        outputThread.start();
+        }
 
         int exitCode = process.waitFor();
 
-        errorThread.join();
-        outputThread.join();
-
         if (exitCode != 0) {
             log.error("FFmpeg failed for resolution {}", resolution);
-            log.error("Error output: {}", errorOutput.toString());
-            log.error("Standard output: {}", standardOutput.toString());
             throw new RuntimeException("FFmpeg failed for resolution " + resolution + " with exit code " + exitCode);
         }
 
         log.info("Successfully generated {} variant", resolution);
     }
 
-    public void createAdaptiveMasterPlaylist(Path outputPath) throws IOException {
+    private void createSimpleMasterPlaylist(Path outputPath) throws IOException {
         Path masterPlaylist = outputPath.resolve("master.m3u8");
 
-        StringBuilder content = new StringBuilder("#EXTM3U\n#EXT-X-VERSION:3\n\n");
+        String content = "#EXTM3U\n" +
+                "#EXT-X-VERSION:3\n\n" +
+                "#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720\n" +
+                "720p/playlist.m3u8\n";
 
-        if (Files.exists(outputPath.resolve("1080p/playlist.m3u8"))) {
-            content.append("#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,NAME=\"1080p\"\n");
-            content.append("1080p/playlist.m3u8\n\n");
-        }
-
-        if (Files.exists(outputPath.resolve("720p/playlist.m3u8"))) {
-            content.append("#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720,NAME=\"720p\"\n");
-            content.append("720p/playlist.m3u8\n\n");
-        }
-
-        if (Files.exists(outputPath.resolve("480p/playlist.m3u8"))) {
-            content.append("#EXT-X-STREAM-INF:BANDWIDTH=1500000,RESOLUTION=854x480,NAME=\"480p\"\n");
-            content.append("480p/playlist.m3u8\n\n");
-        }
-
-        Files.writeString(masterPlaylist, content.toString());
-        log.info("Master playlist created with {} variants",
-                content.toString().split("EXT-X-STREAM-INF").length - 1);
+        Files.writeString(masterPlaylist, content);
+        log.info("Master playlist created (single quality)");
     }
 
     public void updateVideoStatus(String videoId, String status) {
@@ -231,7 +168,7 @@ public class VideoServiceHelper {
 
                         log.info("Uploading: {}", key);
                         uploadFileToS3(key, path, getContentType(path.getFileName().toString()));
-                    }, Executors.newFixedThreadPool(10)))
+                    }, Executors.newFixedThreadPool(5))) // Reduced from 10 to 5 threads
                     .toList();
 
             CompletableFuture.allOf(uploadFutures.toArray(new CompletableFuture[0])).join();
