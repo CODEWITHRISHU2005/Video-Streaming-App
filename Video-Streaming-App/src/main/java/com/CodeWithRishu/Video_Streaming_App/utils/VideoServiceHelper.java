@@ -55,6 +55,7 @@ public class VideoServiceHelper {
 
     public void runFFmpegConversion(String videoId) throws Exception {
         Video video = videoRepository.findById(videoId).get();
+
         Path videoPath = Paths.get(uploadDir, video.getFilePath());
         Path outputPath = Paths.get(hslDir, videoId);
         Files.createDirectories(outputPath);

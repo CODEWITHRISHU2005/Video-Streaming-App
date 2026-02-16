@@ -68,6 +68,7 @@ public class SecurityConfig {
                                 "/api/ott/**",
                                 "/api/otp/**",
                                 "/api/videos/**",
+                                "/health",
                                 "/favicon.ico",
                                 "/login/oauth2/code/google/**",
                                 "/swagger-ui/**",
