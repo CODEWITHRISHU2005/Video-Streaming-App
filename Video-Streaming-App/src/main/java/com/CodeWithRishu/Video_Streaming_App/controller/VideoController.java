@@ -39,10 +39,6 @@ public class VideoController {
     ) {
         return Optional.of(createVideo(title, description, tags))
                 .map(video -> videoService.save(video, videoFile, thumbnailFile))
-                .map(video -> {
-                    videoService.processVideo(video.getVideoId());
-                    return video;
-                })
                 .map(Serialization::mapVideoToDto)
                 .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
