@@ -1,7 +1,5 @@
 package com.CodeWithRishu.Video_Streaming_App.handler;
 
-import com.CodeWithRishu.Video_Streaming_App.config.CustomUserDetails;
-import com.CodeWithRishu.Video_Streaming_App.config.CustomUserDetailsService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @RequiredArgsConstructor
 public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerationSuccessHandler {
-    private final CustomUserDetailsService userDetailsService;
+
     private final MailSender mailSender;
 
     @Value("${ott.token.expiry.seconds}")
@@ -41,11 +39,9 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
         String magicLink = buildMagicLink(request, oneTimeToken);
         log.info("Generated magic link for user {}: {}", oneTimeToken.getUsername(), magicLink);
 
-        getUserEmail(oneTimeToken.getUsername())
-                .ifPresentOrElse(
-                        email -> sendMagicLinkAsync(email, magicLink, oneTimeToken.getUsername()),
-                        () -> log.warn("No email found for user: {}", oneTimeToken.getUsername())
-                );
+        String username = oneTimeToken.getUsername();
+        String recipientEmail = this.getUserEmail(username);
+        sendMagicLinkAsync(recipientEmail, magicLink, username);
 
         this.redirectHandler.handle(request, response, oneTimeToken);
     }
@@ -61,20 +57,10 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
                 .toUriString();
     }
 
-    private Optional<String> getUserEmail(String username) {
-        return Optional.ofNullable(username)
-                .flatMap(user -> {
-                    try {
-                        return Optional.ofNullable(userDetailsService.loadUserByUsername(user));
-                    } catch (Exception e) {
-                        log.error("Error retrieving email for username: {}", user, e);
-                        return Optional.empty();
-                    }
-                })
-                .filter(CustomUserDetails.class::isInstance)
-                .map(CustomUserDetails.class::cast)
-                .map(CustomUserDetails::getUsername)
-                .filter(email -> !email.isBlank());
+    private String getUserEmail(String userName) {
+        return Optional.ofNullable(userName)
+                .filter(email -> !email.isBlank())
+                .orElseThrow(() -> new IllegalArgumentException("Username cannot be null or empty"));
     }
 
     private void sendMagicLinkAsync(String recipientEmail, String magicLink, String username) {

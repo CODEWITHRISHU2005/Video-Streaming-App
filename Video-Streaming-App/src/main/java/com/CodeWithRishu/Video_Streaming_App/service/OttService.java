@@ -85,12 +85,12 @@ public class OttService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(mailFrom);
         message.setTo(user.getEmail());
-        message.setSubject("Your SnapBuy Sign-In Link");
+        message.setSubject("Your VideoStream Sign-In Link");
 
         String messageBody = String.format("""
                  Hello %s,
                 
-                 Click the link below to sign in to your SnapBuy account:
+                 Click the link below to sign in to your VideoStream account:
                 
                  %s
                 
