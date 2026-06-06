@@ -36,25 +36,7 @@ export default function PlaylistsPage() {
       if (local) {
         setPlaylists(JSON.parse(local));
       } else {
-        // Mock a couple of default playlists to start with a beautiful empty state
-        const initialMock = [
-          {
-            id: 'mock-p1',
-            name: 'Web Dev Tutorials',
-            description: 'My favorite coding and development tutorials to watch later.',
-            videos: [],
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: 'mock-p2',
-            name: 'Relaxing Music',
-            description: 'Ambient soundtrack and music videos for coding and focus.',
-            videos: [],
-            createdAt: new Date().toISOString(),
-          }
-        ];
-        setPlaylists(initialMock);
-        localStorage.setItem(`custom_playlists_${user?.id || 'guest'}`, JSON.stringify(initialMock));
+        setPlaylists([]);
       }
     } finally {
       setIsLoading(false);
