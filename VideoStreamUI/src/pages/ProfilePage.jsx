@@ -134,7 +134,7 @@ function ProfilePage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0f1014] text-gray-900 dark:text-white selection:bg-purple-500 selection:text-white transition-colors duration-300">
+        <div className="min-h-screen bg-transparent text-slate-900 dark:text-slate-100 selection:bg-purple-500 selection:text-white transition-colors duration-300">
             {/* Edit Profile Modal */}
             <Modal show={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} popup size="md">
                 <Modal.Header />
@@ -238,13 +238,13 @@ function ProfilePage() {
             </Modal>
 
             {/* Immersive Header Background */}
-            <div className="relative h-80 w-full overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-200 via-gray-50 to-gray-50 dark:from-indigo-900/60 dark:via-[#0f1014] dark:to-[#0f1014] z-0" />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-transparent to-transparent dark:from-[#0f1014] z-10" />
+            <div className="relative h-80 w-full overflow-hidden rounded-t-3xl">
+                <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 via-transparent to-transparent dark:from-indigo-500/20 z-0" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-transparent to-transparent dark:from-[#07080a] z-10" />
                 
                 {/* Abstract Decorative Elements */}
-                <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-3xl filter opacity-40 animate-pulse" />
-                <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-blue-500/20 rounded-full blur-3xl filter opacity-30" />
+                <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl filter opacity-40 animate-pulse" />
+                <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-3xl filter opacity-30" />
             </div>
 
             <motion.div 
@@ -420,7 +420,7 @@ function ProfilePage() {
                             )}
                             {activeTab === 'about' && (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                    <div className="md:col-span-2 bg-white dark:bg-white/5 rounded-3xl p-8 border border-gray-100 dark:border-white/10 shadow-sm dark:shadow-none">
+                                    <div className="md:col-span-2 glass-card rounded-3xl p-8 shadow-sm">
                                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                             <FaUserCircle className="text-purple-500" /> Biography
                                         </h3>
@@ -428,7 +428,7 @@ function ProfilePage() {
                                             {user?.bio || "Hello! I love creating content and sharing it with the world. Subscribe to my channel to stay updated with my latest videos."}
                                         </p>
                                     </div>
-                                    <div className="bg-white dark:bg-white/5 rounded-3xl p-8 border border-gray-100 dark:border-white/10 h-fit shadow-sm dark:shadow-none">
+                                    <div className="glass-card rounded-3xl p-8 h-fit shadow-sm">
                                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Details</h3>
                                         <div className="space-y-4">
                                             {user?.phone && (
@@ -471,7 +471,7 @@ function loadVideosAndRender(videos, loading) {
     
     if (!videos || videos.length === 0) {
         return (
-             <div className="flex flex-col items-center justify-center py-20 text-center bg-white/50 dark:bg-white/5 rounded-3xl border border-dashed border-gray-300 dark:border-white/10">
+             <div className="flex flex-col items-center justify-center py-20 text-center glass-card rounded-3xl border border-dashed">
                 <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
                     <FaVideo className="text-3xl text-gray-400 dark:text-gray-500" />
                 </div>

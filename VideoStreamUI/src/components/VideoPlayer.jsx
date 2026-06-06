@@ -9,6 +9,7 @@ import React, {
 import videojs from 'video.js';
 import Hls from 'hls.js';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaVolumeUp, FaVolumeMute, FaBackward, FaForward } from 'react-icons/fa';
 
 import 'video.js/dist/video-js.css';
 
@@ -66,6 +67,112 @@ export default function VideoPlayer({
   const [showPlayPauseOverlay, setShowPlayPauseOverlay] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
+  const [seekIndicator, setSeekIndicator] = useState({ visible: false, direction: 'forward' });
+  const [volumeIndicator, setVolumeIndicator] = useState({ visible: false, volume: 1, muted: false });
+  const seekTimeoutRef = useRef(null);
+  const volumeTimeoutRef = useRef(null);
+
+  const triggerSeekIndicator = React.useCallback((direction) => {
+    if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
+    setSeekIndicator({ visible: true, direction });
+    seekTimeoutRef.current = setTimeout(() => {
+      setSeekIndicator({ visible: false, direction });
+    }, 650);
+  }, []);
+
+  const triggerVolumeIndicator = React.useCallback((volume, muted) => {
+    if (volumeTimeoutRef.current) clearTimeout(volumeTimeoutRef.current);
+    setVolumeIndicator({ visible: true, volume, muted });
+    volumeTimeoutRef.current = setTimeout(() => {
+      setVolumeIndicator(p => ({ ...p, visible: false }));
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if typing in input fields
+      const activeEl = document.activeElement;
+      if (
+        activeEl && 
+        (activeEl.tagName === 'INPUT' || 
+         activeEl.tagName === 'TEXTAREA' || 
+         activeEl.isContentEditable)
+      ) {
+        return;
+      }
+
+      const player = playerRef.current;
+      if (!player) return;
+
+      switch (e.key) {
+        case ' ':
+        case 'k':
+          e.preventDefault();
+          if (player.paused()) {
+            player.play().catch(() => {});
+          } else {
+            player.pause();
+          }
+          break;
+        case 'ArrowLeft':
+        case 'j':
+          e.preventDefault();
+          const newTimeLeft = Math.max(0, player.currentTime() - 10);
+          player.currentTime(newTimeLeft);
+          triggerSeekIndicator('backward');
+          break;
+        case 'ArrowRight':
+        case 'l':
+          e.preventDefault();
+          const newTimeRight = Math.min(player.duration() || 0, player.currentTime() + 10);
+          player.currentTime(newTimeRight);
+          triggerSeekIndicator('forward');
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          const newVolUp = Math.min(1, player.volume() + 0.05);
+          player.volume(newVolUp);
+          player.muted(false);
+          triggerVolumeIndicator(newVolUp, false);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          const newVolDown = Math.max(0, player.volume() - 0.05);
+          player.volume(newVolDown);
+          if (newVolDown === 0) {
+            player.muted(true);
+            triggerVolumeIndicator(0, true);
+          } else {
+            triggerVolumeIndicator(newVolDown, false);
+          }
+          break;
+        case 'm':
+          e.preventDefault();
+          const newMuted = !player.muted();
+          player.muted(newMuted);
+          triggerVolumeIndicator(player.volume(), newMuted);
+          break;
+        case 'f':
+          e.preventDefault();
+          if (player.isFullscreen()) {
+            player.exitFullscreen();
+          } else {
+            player.requestFullscreen();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
+      if (volumeTimeoutRef.current) clearTimeout(volumeTimeoutRef.current);
+    };
+  }, [triggerSeekIndicator, triggerVolumeIndicator]);
 
   // Dynamically load HlsQualitySelector
   useEffect(() => {
@@ -364,6 +471,69 @@ export default function VideoPlayer({
         <div ref={containerRef} className="video-host" />
         <div className="video-overlay-layer">
           <AnimatePresence>
+            {/* Seek Indicators */}
+            {seekIndicator.visible && seekIndicator.direction === 'backward' && (
+              <motion.div
+                key="seek-backward"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute left-0 top-0 bottom-0 w-1/3 bg-gradient-to-r from-black/60 to-transparent flex flex-col items-center justify-center text-white pointer-events-none z-20"
+              >
+                <motion.div
+                  animate={{ x: [0, -10, 0] }}
+                  transition={{ repeat: Infinity, duration: 0.5 }}
+                >
+                  <FaBackward className="text-3xl" />
+                </motion.div>
+                <span className="text-xs font-bold mt-2 bg-black/40 px-2 py-0.5 rounded-full">-10s</span>
+              </motion.div>
+            )}
+
+            {seekIndicator.visible && seekIndicator.direction === 'forward' && (
+              <motion.div
+                key="seek-forward"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-black/60 to-transparent flex flex-col items-center justify-center text-white pointer-events-none z-20"
+              >
+                <motion.div
+                  animate={{ x: [0, 10, 0] }}
+                  transition={{ repeat: Infinity, duration: 0.5 }}
+                >
+                  <FaForward className="text-3xl" />
+                </motion.div>
+                <span className="text-xs font-bold mt-2 bg-black/40 px-2 py-0.5 rounded-full">+10s</span>
+              </motion.div>
+            )}
+
+            {/* Volume HUD Indicator */}
+            {volumeIndicator.visible && (
+              <motion.div
+                key="volume-hud"
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md rounded-full px-4 py-2.5 flex items-center gap-3 text-white text-sm shadow-2xl z-30 pointer-events-none border border-white/10"
+              >
+                {volumeIndicator.muted ? (
+                  <FaVolumeMute className="text-red-400 text-lg flex-shrink-0" />
+                ) : (
+                  <FaVolumeUp className="text-blue-400 text-lg flex-shrink-0" />
+                )}
+                <div className="w-20 h-1.5 bg-white/20 rounded-full overflow-hidden flex-shrink-0">
+                  <div 
+                    className="h-full bg-blue-500 transition-all duration-100" 
+                    style={{ width: `${volumeIndicator.muted ? 0 : volumeIndicator.volume * 100}%` }}
+                  />
+                </div>
+                <span className="font-semibold w-8 text-right text-xs">
+                  {volumeIndicator.muted ? 'Muted' : `${Math.round(volumeIndicator.volume * 100)}%`}
+                </span>
+              </motion.div>
+            )}
+
             {isBuffering && (
               <motion.div
                 key="buffering"

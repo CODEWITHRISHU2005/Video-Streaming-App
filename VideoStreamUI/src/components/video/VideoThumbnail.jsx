@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaPlay, FaClock, FaHeart, FaEye, FaThumbsUp, FaComment, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import { FaPlay, FaClock, FaHeart, FaEye, FaThumbsUp, FaComment, FaCheckCircle, FaSpinner, FaBookmark } from 'react-icons/fa';
 import { formatDuration, formatFileSize, formatUploadDate, formatCount } from '../../utils/videoUtils';
 import { useVideo } from '../../context/VideoContext';
 
@@ -8,16 +8,24 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
   const [isHovered, setIsHovered] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isFavoriteAnimating, setIsFavoriteAnimating] = useState(false);
-  const { favorites, toggleFavorite } = useVideo();
+  const [isWatchLaterAnimating, setIsWatchLaterAnimating] = useState(false);
+  const { favorites, toggleFavorite, watchLater, addToWatchLater, removeFromWatchLater } = useVideo();
   const navigate = useNavigate();
 
   const isFavorite = favorites.some(fav => fav.id === video.id);
+  const isInWatchLater = watchLater.some(v => v.id === video.id);
 
   useEffect(() => {
     if (!isFavoriteAnimating) return;
     const timeout = setTimeout(() => setIsFavoriteAnimating(false), 400);
     return () => clearTimeout(timeout);
   }, [isFavoriteAnimating]);
+
+  useEffect(() => {
+    if (!isWatchLaterAnimating) return;
+    const timeout = setTimeout(() => setIsWatchLaterAnimating(false), 400);
+    return () => clearTimeout(timeout);
+  }, [isWatchLaterAnimating]);
 
 
   const handleImageError = () => {
@@ -39,6 +47,16 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
     toggleFavorite(video);
   };
 
+  const handleWatchLaterClick = (e) => {
+    e.stopPropagation();
+    setIsWatchLaterAnimating(true);
+    if (isInWatchLater) {
+      removeFromWatchLater(video.id);
+    } else {
+      addToWatchLater(video);
+    }
+  };
+
   const defaultThumbnail = (
     <div className="w-full h-48 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 flex flex-col items-center justify-center p-4 text-white relative overflow-hidden">
       {/* Animated background pattern */}
@@ -53,7 +71,7 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
 
   return (
     <div
-      className="relative group cursor-pointer bg-white dark:bg-neutral-800 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 hover:scale-[1.01] animate-fade-in-up"
+      className="relative group cursor-pointer glass-card rounded-2xl overflow-hidden animate-fade-in-up"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleVideoClick}
@@ -88,10 +106,20 @@ function VideoThumbnail({ video, onVideoClick, showPlayButton = true }) {
           {formatDuration(video.duration || 0)}
         </div>
 
+        {/* Watch Later Button */}
+        <button
+          onClick={handleWatchLaterClick}
+          className={`absolute top-2 right-12 p-2 rounded-full transition-all duration-300 transform ${isInWatchLater ? 'bg-blue-600 text-white scale-110 shadow-lg' : 'bg-neutral-700/80 text-neutral-300 hover:bg-blue-500 hover:text-white shadow-md'} ${isWatchLaterAnimating ? 'favorite-animate' : ''}`}
+          title={isInWatchLater ? 'Remove from Watch Later' : 'Watch Later'}
+        >
+          <FaBookmark className="text-base" />
+        </button>
+
         {/* Favorite Button */}
         <button
           onClick={handleFavoriteClick}
           className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 transform ${isFavorite ? 'bg-red-600 text-white scale-110 shadow-lg' : 'bg-neutral-700/80 text-neutral-300 hover:bg-red-500 hover:text-white shadow-md'} ${isFavoriteAnimating ? 'favorite-animate' : ''}`}
+          title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
         >
           <FaHeart className="text-base" />
         </button>

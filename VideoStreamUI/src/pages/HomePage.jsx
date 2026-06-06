@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo } from 'react';
-import { FaPlay, FaClock, FaEye, FaUpload, FaThumbsUp, FaCommentDots } from 'react-icons/fa';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FaPlay, FaClock, FaEye, FaUpload, FaThumbsUp, FaCommentDots, FaHeart, FaBookmark, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { Button, Card } from 'flowbite-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import VideoGrid from '../components/video/VideoGrid';
 import { useVideo } from '../context/VideoContext';
 import { formatUploadDate, formatDuration } from '../utils/videoUtils';
@@ -12,8 +13,14 @@ export default function HomePage() {
     videos: rawVideos,
     isLoading,
     playVideo,
+    favorites,
+    toggleFavorite,
+    watchLater,
+    addToWatchLater,
+    removeFromWatchLater,
   } = useVideo();
   const navigate = useNavigate();
+  const [activeSlide, setActiveSlide] = useState(0);
 
   const videos = useMemo(
     () =>
@@ -62,6 +69,69 @@ export default function HomePage() {
 
   const featuredVideos = useMemo(() => videos.slice(0, 6), [videos]);
 
+  const slides = useMemo(() => {
+    const defaultSlides = [
+      {
+        id: 'default-1',
+        title: 'Unleash the Future of Video Streaming',
+        description: 'Experience ultra-high-definition playback, global creator networks, and interactive real-time communities.',
+        imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop',
+        tags: ['Streaming', 'Future', 'Tech'],
+        isDefault: true,
+        link: '/upload'
+      },
+      {
+        id: 'default-2',
+        title: 'Cinematic Masterpieces & Curated Shorts',
+        description: 'Dive into award-winning indie short films, stunning community vlogs, and custom visual art.',
+        imageUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=1600&auto=format&fit=crop',
+        tags: ['Cinema', 'Art', 'Creative'],
+        isDefault: true,
+        link: '/'
+      },
+      {
+        id: 'default-3',
+        title: 'Share Your Story with the World',
+        description: 'Empowering independent filmmakers and daily creators. Upload in seconds and reach your audience.',
+        imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1600&auto=format&fit=crop',
+        tags: ['Community', 'Creator', 'Share'],
+        isDefault: true,
+        link: '/upload'
+      }
+    ];
+
+    if (featuredVideos && featuredVideos.length > 0) {
+      const videoSlides = featuredVideos.map((video, idx) => ({
+        id: video.id,
+        title: video.title,
+        description: video.description || 'Watch this amazing featured video on our platform.',
+        imageUrl: video.thumbnailUrl || defaultSlides[idx % defaultSlides.length].imageUrl,
+        tags: video.tags && video.tags.length > 0 ? video.tags : ['Featured'],
+        isVideo: true,
+        video: video
+      }));
+      return [...videoSlides, ...defaultSlides].slice(0, 5);
+    }
+
+    return defaultSlides;
+  }, [featuredVideos]);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % slides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
+  const nextSlide = () => {
+    setActiveSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const prevSlide = () => {
+    setActiveSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
   useEffect(() => {
     const sections = document.querySelectorAll('section');
     sections.forEach((section, index) => {
@@ -84,112 +154,164 @@ export default function HomePage() {
   }
 
   return (
-    <div className="max-w-[90rem] mx-auto space-y-20 pt-4 pb-16 px-6 sm:px-8 lg:px-12 bg-neutral-50 dark:bg-black min-h-screen font-sans text-neutral-900 dark:text-white relative overflow-hidden">
-      {/* Animated Background Blobs */}
-      <div className="pointer-events-none absolute -top-32 -right-32 w-[30rem] h-[30rem] rounded-full opacity-30 blur-3xl"
-           style={{ background: 'radial-gradient(circle at 30% 30%, rgba(79,70,229,0.6), rgba(79,70,229,0) 60%)' }} />
-      <div className="pointer-events-none absolute -bottom-40 -left-40 w-[36rem] h-[36rem] rounded-full opacity-25 blur-3xl"
-           style={{ background: 'radial-gradient(circle at 70% 70%, rgba(236,72,153,0.55), rgba(236,72,153,0) 60%)' }} />
+    <div className="max-w-[90rem] mx-auto space-y-16 pt-4 pb-16 px-6 sm:px-8 lg:px-12 min-h-screen font-sans text-slate-900 dark:text-slate-100 relative overflow-hidden">
+      <section className="relative text-white rounded-3xl shadow-2xl h-[420px] sm:h-[480px] md:h-[520px] overflow-hidden animate-fade-in-up" aria-label="Trending Carousel Banner">
+        {/* Background Image Carousel with Fading Crossfade */}
+        <div className="absolute inset-0 w-full h-full">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSlide}
+              initial={{ opacity: 0, scale: 1.03 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              className="absolute inset-0 w-full h-full"
+            >
+              <img
+                src={slides[activeSlide].imageUrl}
+                alt={slides[activeSlide].title}
+                className="w-full h-full object-cover select-none"
+                loading="eager"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop';
+                }}
+              />
+              {/* Premium dark gradient layers */}
+              <div 
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: 'linear-gradient(to right, rgba(7, 8, 10, 0.95) 0%, rgba(7, 8, 10, 0.75) 40%, rgba(7, 8, 10, 0.3) 70%, rgba(7, 8, 10, 0) 100%)',
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#07080a] via-transparent to-[#07080a]/30" />
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
-      <section className="relative text-white rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 overflow-hidden animate-fade-in-up" aria-label="Hero Section"
-        style={{
-          backgroundImage:
-            'linear-gradient(135deg, rgba(17,24,39,0.9) 0%, rgba(67,56,202,0.35) 50%, rgba(236,72,153,0.25) 100%)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          backgroundSize: '200% 200%'
-        }}
-      >
-        <div className="absolute inset-0 rounded-3xl bg-[radial-gradient(120rem_16rem_at_80%_-20%,rgba(255,255,255,0.2),rgba(255,255,255,0))]" />
+        {/* Floating background elements for depth */}
+        <div className="absolute -left-20 -top-20 w-72 h-72 rounded-full border border-white/10 animate-pulse pointer-events-none" />
+        <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-blue-400 rounded-full blur-md animate-pulse opacity-40 pointer-events-none" style={{ animationDelay: '0.5s' }} />
 
-        {/* Decorative rings */}
-        <div className="absolute -left-20 -top-20 w-72 h-72 rounded-full border border-white/20 animate-pulse" />
-        <div className="absolute -right-24 -bottom-24 w-96 h-96 rounded-full border border-white/10 animate-pulse" style={{ animationDelay: '1s' }} />
-        
-        {/* Floating particles/glow effects */}
-        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-cyan-400 rounded-full blur-sm animate-pulse opacity-60" style={{ animationDelay: '0s' }} />
-        <div className="absolute top-1/3 right-1/3 w-3 h-3 bg-blue-400 rounded-full blur-md animate-pulse opacity-50" style={{ animationDelay: '0.5s' }} />
-        <div className="absolute bottom-1/4 left-1/3 w-2 h-2 bg-purple-400 rounded-full blur-sm animate-pulse opacity-60" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 right-1/4 w-2.5 h-2.5 bg-pink-400 rounded-full blur-md animate-pulse opacity-50" style={{ animationDelay: '1.5s' }} />
-        
-        {/* Gradient glow orbs */}
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-br from-cyan-400/20 via-blue-400/15 to-purple-400/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-gradient-to-tl from-purple-400/20 via-pink-400/15 to-rose-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-
-        <div className="relative z-10 text-center space-y-8">
-          {/* Enhanced Banner with Individual Word Styling */}
-          <div className="space-y-4">
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-extrabold leading-[1.1] tracking-tight">
-              <span className="inline-block animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+        {/* Carousel Content */}
+        <div className="relative z-10 flex flex-col justify-between h-full p-6 sm:p-10 md:p-12">
+          {/* Top Info Badges */}
+          <div className="flex items-center gap-2">
+            <span className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full shadow-md shadow-red-500/20">
+              Trending
+            </span>
+            <div className="flex gap-2">
+              {slides[activeSlide].tags.map((tag, idx) => (
                 <span 
-                  className="bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-300 bg-clip-text text-transparent drop-shadow-lg"
-                  style={{
-                    backgroundSize: '200% 200%',
-                    animation: 'gradient-shift 3s ease infinite',
-                  }}
+                  key={idx} 
+                  className="text-[11px] text-white/90 font-medium bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/5 shadow-sm"
                 >
-                  Stream
+                  #{tag}
                 </span>
-              </span>
-              <span className="text-white/20 mx-2 sm:mx-4">•</span>
-              <span className="inline-block animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-                <span 
-                  className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-lg"
-                  style={{
-                    backgroundSize: '200% 200%',
-                    animation: 'gradient-shift 3s ease infinite 0.5s',
-                  }}
-                >
-                  Connect
-                </span>
-              </span>
-              <span className="text-white/20 mx-2 sm:mx-4">•</span>
-              <span className="inline-block animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
-                <span 
-                  className="bg-gradient-to-r from-purple-400 via-pink-400 to-rose-400 bg-clip-text text-transparent drop-shadow-lg"
-                  style={{
-                    backgroundSize: '200% 200%',
-                    animation: 'gradient-shift 3s ease infinite 1s',
-                  }}
-                >
-                  Inspire
-                </span>
-                <span className="text-white/90">.</span>
-              </span>
-            </h1>
-            
-            {/* Decorative underline with animation */}
-            <div className="flex justify-center items-center gap-2 mt-4">
-              <div className="h-1 w-16 bg-gradient-to-r from-transparent via-cyan-400 to-transparent rounded-full animate-pulse" />
-              <div className="h-1 w-20 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 rounded-full" />
-              <div className="h-1 w-16 bg-gradient-to-r from-transparent via-purple-400 to-transparent rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+              ))}
             </div>
           </div>
-          
-          <p className="text-lg sm:text-2xl md:text-3xl max-w-3xl mx-auto text-white/90 font-light leading-relaxed animate-fade-in-up" style={{ animationDelay: '0.7s' }}>
-            Discover a world of creativity through immersive, community-powered videos.
-          </p>
-          
-          <div className="flex justify-center animate-fade-in-up" style={{ animationDelay: '0.9s' }}>
-            <Link to="/upload" aria-label="Upload Your Video">
+
+          {/* Middle Details */}
+          <div className="max-w-2xl space-y-4">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeSlide}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.4 }}
+                className="space-y-3"
+              >
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight drop-shadow-md bg-gradient-to-r from-white via-slate-100 to-white bg-clip-text text-transparent">
+                  {slides[activeSlide].title}
+                </h1>
+                <p className="text-sm sm:text-base md:text-lg text-slate-300 line-clamp-3 leading-relaxed drop-shadow-sm font-light">
+                  {slides[activeSlide].description}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Carousel Interactive Buttons */}
+            <div className="pt-2 flex flex-wrap gap-4 items-center">
+              {slides[activeSlide].isVideo ? (
+                <Button
+                  size="lg"
+                  gradientDuoTone="purpleToBlue"
+                  className="group relative transition-all duration-300 hover:scale-105 rounded-full font-bold shadow-lg shadow-blue-500/20"
+                  onClick={() => {
+                    const mapped = mapVideoDetails(slides[activeSlide].video);
+                    playVideo(mapped);
+                    navigate(`/watch/${slides[activeSlide].id}`);
+                  }}
+                >
+                  <FaPlay className="mr-2 inline-block text-xs" /> Watch Now
+                </Button>
+              ) : (
+                <Link to={slides[activeSlide].link}>
+                  <Button
+                    size="lg"
+                    gradientDuoTone="purpleToBlue"
+                    className="group relative transition-all duration-300 hover:scale-105 rounded-full font-bold shadow-lg shadow-purple-500/20"
+                  >
+                    <FaUpload className="mr-2 inline-block text-xs" /> Upload Video
+                  </Button>
+                </Link>
+              )}
               <Button
                 size="lg"
-                className="group relative bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 text-white hover:from-cyan-400 hover:via-blue-400 hover:to-purple-400 transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-105 px-8 py-4 rounded-full font-semibold text-lg overflow-hidden"
+                color="gray"
+                className="bg-white/10 hover:bg-white/20 text-white border-none backdrop-blur-md rounded-full font-semibold transition-colors duration-200"
+                onClick={() => {
+                  navigate('/upload');
+                }}
               >
-                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                <FaUpload className="mr-2 inline-block" /> Upload Your Video
+                Explore Creator Hub
               </Button>
-            </Link>
+            </div>
+          </div>
+
+          {/* Bottom Indicators & Manual Controls */}
+          <div className="flex items-center justify-between mt-4">
+            {/* Slide Navigation Dots */}
+            <div className="flex gap-2">
+              {slides.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveSlide(idx)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    activeSlide === idx ? "w-8 bg-blue-500" : "w-2 bg-white/35 hover:bg-white/50"
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Slider Arrow Buttons */}
+            <div className="flex gap-2.5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prevSlide();
+                }}
+                className="p-2.5 bg-white/10 hover:bg-white/20 hover:scale-105 active:scale-95 backdrop-blur-md rounded-full text-white transition-all shadow-md"
+                aria-label="Previous Slide"
+              >
+                <FaChevronLeft className="text-xs sm:text-sm" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nextSlide();
+                }}
+                className="p-2.5 bg-white/10 hover:bg-white/20 hover:scale-105 active:scale-95 backdrop-blur-md rounded-full text-white transition-all shadow-md"
+                aria-label="Next Slide"
+              >
+                <FaChevronRight className="text-xs sm:text-sm" />
+              </button>
+            </div>
           </div>
         </div>
-        
-        {/* Add keyframes for gradient animation */}
-        <style>{`
-          @keyframes gradient-shift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-          }
-        `}</style>
       </section>
 
       <section className="space-y-6 animate-fade-in-up" aria-label="Featured Videos">
@@ -197,76 +319,96 @@ export default function HomePage() {
           <h2 className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-yellow-400 flex items-center gap-2">
             <FaPlay className="text-yellow-300" /> Featured Videos
           </h2>
-          <Button
-            color="pink"
-            size="sm"
-            className="transition-transform hover:scale-105 shadow-sm flex items-center gap-2"
-            onClick={() => navigate('/videos')}
-            aria-label="View All Featured Videos"
-          >
-            View All
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-full">
-              Explore
-            </span>
-          </Button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {featuredVideos.map(video => (
-            <Card
-              key={video.id}
-              className="rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 bg-white dark:bg-neutral-900 cursor-pointer"
-              onClick={() => {
-                const mapped = mapVideoDetails(video);
-                playVideo(mapped);
-                navigate(`/watch/${video.id}`);
-              }}
-              aria-label={`Watch ${video.title}`}
-            >
-              <div className="relative">
-                <img
-                  src={video.thumbnailUrl}
-                  alt={`Thumbnail of ${video.title}`}
-                  className="h-48 w-full object-cover transition-all duration-200"
-                  loading="lazy"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = 'https://images.unsplash.com/photo-1521335629791-ce4aec67dd53?q=80&w=600&auto=format&fit=crop';
-                  }}
-                />
-                {video.duration !== undefined && video.duration !== null && (
-                  <div className="absolute bottom-3 left-3 flex items-center gap-2 text-xs font-semibold">
-                    <span className="bg-black/75 text-white px-2 py-1 rounded-md">
-                      {formatDuration(video.duration)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="p-4 space-y-2">
-                <h3 className="text-lg font-semibold line-clamp-2 dark:text-white">{video.title}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                  {video.description}
-                </p>
-                {/* Tags for Featured Videos */}
-                {video.tags && video.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {video.tags.slice(0, 3).map((tag, index) => (
-                      <span 
-                        key={index} 
-                        className="text-[10px] bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 px-2 py-1 rounded-md font-medium border border-pink-100 dark:border-pink-800/50"
-                      >
-                        #{tag}
+          {featuredVideos.map(video => {
+            const isFavorite = favorites.some(fav => fav.id === video.id);
+            const isInWatchLater = watchLater.some(v => v.id === video.id);
+            return (
+              <div
+                key={video.id}
+                className="glass-card rounded-2xl overflow-hidden cursor-pointer animate-fade-in-up"
+                onClick={() => {
+                  const mapped = mapVideoDetails(video);
+                  playVideo(mapped);
+                  navigate(`/watch/${video.id}`);
+                }}
+                aria-label={`Watch ${video.title}`}
+              >
+                <div className="relative">
+                  <img
+                    src={video.thumbnailUrl}
+                    alt={`Thumbnail of ${video.title}`}
+                    className="h-48 w-full object-cover transition-all duration-200"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1521335629791-ce4aec67dd53?q=80&w=600&auto=format&fit=crop';
+                    }}
+                  />
+                  {video.duration !== undefined && video.duration !== null && (
+                    <div className="absolute bottom-3 left-3 flex items-center gap-2 text-xs font-semibold">
+                      <span className="bg-black/75 text-white px-2 py-1 rounded-md">
+                        {formatDuration(video.duration)}
                       </span>
-                    ))}
-                  </div>
-                )}
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <FaClock /> {formatUploadDate(video.uploadDate) || 'Just now'}
+                    </div>
+                  )}
+
+                  {/* Watch Later Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isInWatchLater) {
+                        removeFromWatchLater(video.id);
+                      } else {
+                        addToWatchLater(video);
+                      }
+                    }}
+                    className={`absolute top-2 right-12 p-2 rounded-full transition-all duration-300 transform ${isInWatchLater ? 'bg-blue-600 text-white scale-110 shadow-lg' : 'bg-neutral-700/80 text-neutral-300 hover:bg-blue-500 hover:text-white shadow-md'}`}
+                    title={isInWatchLater ? 'Remove from Watch Later' : 'Watch Later'}
+                  >
+                    <FaBookmark className="text-base" />
+                  </button>
+
+                  {/* Favorite Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(video);
+                    }}
+                    className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 transform ${isFavorite ? 'bg-red-600 text-white scale-110 shadow-lg' : 'bg-neutral-700/80 text-neutral-300 hover:bg-red-500 hover:text-white shadow-md'}`}
+                    title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                  >
+                    <FaHeart className="text-base" />
+                  </button>
+                </div>
+                <div className="p-4 space-y-2">
+                  <h3 className="text-lg font-semibold line-clamp-2 dark:text-white">{video.title}</h3>
+                  <p className="text-sm text-gray-650 dark:text-gray-400 line-clamp-2">
+                    {video.description}
+                  </p>
+                  {/* Tags for Featured Videos */}
+                  {video.tags && video.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {video.tags.slice(0, 3).map((tag, index) => (
+                        <span 
+                          key={index} 
+                          className="text-[10px] bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 px-2 py-1 rounded-md font-medium border border-pink-100 dark:border-pink-850/50"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <FaClock /> {formatUploadDate(video.uploadDate) || 'Just now'}
+                    </div>
                   </div>
                 </div>
               </div>
-            </Card>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -275,15 +417,6 @@ export default function HomePage() {
           <h2 className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-pink-500">
             All Videos
           </h2>
-          <Button
-            color="purple"
-            size="sm"
-            className="transition-transform hover:scale-105 shadow-sm"
-            onClick={() => navigate('/videos')}
-            aria-label="View All Videos"
-          >
-            View All
-          </Button>
         </div>
         <VideoGrid
           videos={videos}

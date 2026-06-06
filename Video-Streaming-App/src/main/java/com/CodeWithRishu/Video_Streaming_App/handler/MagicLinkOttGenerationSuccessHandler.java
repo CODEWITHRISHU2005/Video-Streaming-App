@@ -106,7 +106,6 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
                 Best regards,
                 The VideoStream Team
                 
-                ---
                 This is an automated message. Please do not reply to this email.
                 """, username, magicLink, magicLinkExpirySeconds / 60);
     }

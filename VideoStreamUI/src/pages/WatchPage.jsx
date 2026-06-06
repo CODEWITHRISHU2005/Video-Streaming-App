@@ -16,8 +16,8 @@ import {
   FaEye,
   FaClock,
   FaThumbsUp,
-  FaCommentDots,
   FaBookmark,
+  FaPlus,
 } from 'react-icons/fa';
 import { Button, ToggleSwitch } from 'flowbite-react';
 import toast from 'react-hot-toast';
@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideo } from '../context/VideoContext';
 import { videoAPI } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 import { mapVideoDetails } from '../utils/mapVideoDetails';
 import {
   formatDuration,
@@ -49,12 +50,17 @@ export default function WatchPage() {
     updateUserPreferences,
   } = useVideo();
 
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isFavoriteAnimating, setIsFavoriteAnimating] = useState(false);
   const [isWatchLaterAnimating, setIsWatchLaterAnimating] = useState(false);
+
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [customPlaylists, setCustomPlaylists] = useState([]);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
 
   const preloadedVideo = useMemo(
     () => videos.find(video => `${video.id}` === `${videoId}`),
@@ -125,6 +131,55 @@ export default function WatchPage() {
       setIsLoading(false);
     }
   }, [videoId, playVideo, preloadedVideo]);
+
+  const loadPlaylists = useCallback(() => {
+    const local = localStorage.getItem(`custom_playlists_${user?.id || 'guest'}`);
+    if (local) {
+      setCustomPlaylists(JSON.parse(local));
+    } else {
+      setCustomPlaylists([]);
+    }
+  }, [user?.id]);
+
+  const toggleVideoInPlaylist = (playlistId) => {
+    if (!currentVideo) return;
+    const updated = customPlaylists.map(p => {
+      if (p.id === playlistId) {
+        const hasVideo = p.videos.some(v => v.id === currentVideo.id);
+        let updatedVideos;
+        if (hasVideo) {
+          updatedVideos = p.videos.filter(v => v.id !== currentVideo.id);
+          toast.success(`Removed from ${p.name}`);
+        } else {
+          updatedVideos = [...p.videos, currentVideo];
+          toast.success(`Added to ${p.name}`);
+        }
+        return { ...p, videos: updatedVideos };
+      }
+      return p;
+    });
+    setCustomPlaylists(updated);
+    localStorage.setItem(`custom_playlists_${user?.id || 'guest'}`, JSON.stringify(updated));
+  };
+
+  const handleCreateNewPlaylistFromModal = (e) => {
+    e.preventDefault();
+    if (!newPlaylistName.trim()) return;
+    
+    const newPlaylist = {
+      id: `playlist-${Date.now()}`,
+      name: newPlaylistName,
+      description: '',
+      videos: currentVideo ? [currentVideo] : [],
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [...customPlaylists, newPlaylist];
+    setCustomPlaylists(updated);
+    localStorage.setItem(`custom_playlists_${user?.id || 'guest'}`, JSON.stringify(updated));
+    setNewPlaylistName('');
+    toast.success(`Playlist created and video added!`);
+  };
 
   useEffect(() => {
     fetchVideoDetails();
@@ -264,11 +319,13 @@ export default function WatchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-transparent text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <div className="max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-10 py-12">
         <div className="grid gap-10 xl:gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
           <div className="space-y-8">
-            <div className="overflow-hidden rounded-3xl bg-white dark:bg-neutral-900/80 border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-2xl">
+            <div className="relative overflow-hidden rounded-3xl bg-white dark:bg-neutral-900/80 border border-slate-200/50 dark:border-white/10 shadow-xl dark:shadow-2xl">
+              {/* Cinema Ambient Glow */}
+              <div className="pointer-events-none absolute -inset-10 bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl opacity-60 rounded-full animate-pulse" />
               <VideoPlayer
                 videoData={currentVideo}
                 userPreferences={userPreferences}
@@ -277,7 +334,7 @@ export default function WatchPage() {
               />
             </div>
 
-            <section className="rounded-3xl bg-white dark:bg-neutral-900/80 border border-gray-200 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-sm">
+            <section className="glass-card rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm">
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-white/50">
                   <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-600/20 dark:text-blue-200 border border-blue-200 dark:border-blue-400/40">Now Playing</span>
@@ -346,6 +403,18 @@ export default function WatchPage() {
 
                 <button
                   type="button"
+                  onClick={() => {
+                    loadPlaylists();
+                    setShowPlaylistModal(true);
+                  }}
+                  className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10"
+                >
+                  <FaPlus className="text-base" />
+                  Playlist
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleShare}
                   className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10"
                 >
@@ -405,7 +474,7 @@ export default function WatchPage() {
           </div>
 
           <aside className="space-y-6">
-            <div className="rounded-3xl bg-white dark:bg-neutral-900/80 border border-gray-200 dark:border-white/10 p-6 space-y-4 shadow-sm">
+            <div className="glass-card rounded-3xl p-6 space-y-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Autoplay next</h2>
@@ -418,7 +487,7 @@ export default function WatchPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl bg-white dark:bg-neutral-900/80 border border-gray-200 dark:border-white/10 overflow-hidden shadow-sm">
+            <div className="glass-card rounded-3xl overflow-hidden shadow-sm">
               <header className="px-6 py-5 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Up Next</h2>
                 <span className="text-sm text-gray-500 dark:text-white/50">{relatedVideos.length} videos</span>
@@ -464,6 +533,74 @@ export default function WatchPage() {
           </aside>
         </div>
       </div>
+
+      {/* Save to Playlist Modal Overlay */}
+      {showPlaylistModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 space-y-6 shadow-2xl animate-fade-in-up">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <FaBookmark className="text-blue-500" /> Save to...
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPlaylistModal(false)}
+                className="text-neutral-400 hover:text-neutral-650 dark:hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* List of custom playlists with checkboxes */}
+            <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+              {customPlaylists.length > 0 ? (
+                customPlaylists.map(playlist => {
+                  const hasVideo = playlist.videos.some(v => v.id === currentVideo?.id);
+                  return (
+                    <label
+                      key={playlist.id}
+                      className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
+                    >
+                      <span className="text-sm font-semibold text-gray-700 dark:text-neutral-200 truncate pr-2">
+                        {playlist.name}
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={hasVideo}
+                        onChange={() => toggleVideoInPlaylist(playlist.id)}
+                        className="rounded border-gray-300 dark:border-neutral-700 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                      />
+                    </label>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-neutral-500 text-center py-2">No playlists created yet.</p>
+              )}
+            </div>
+
+            {/* Create inline playlist input */}
+            <form onSubmit={handleCreateNewPlaylistFromModal} className="border-t border-neutral-100 dark:border-neutral-800 pt-4 space-y-3">
+              <h4 className="text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Create new playlist</h4>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter playlist name..."
+                  value={newPlaylistName}
+                  onChange={(e) => setNewPlaylistName(e.target.value)}
+                  className="flex-1 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 py-2 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                />
+                <button
+                  type="submit"
+                  disabled={!newPlaylistName.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl px-3 text-sm font-bold transition-all"
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -217,19 +217,19 @@ function VideoGrid({
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3 mt-5 sm:mt-0 items-center justify-end">
+        <div className="flex flex-wrap gap-4 mt-5 sm:mt-0 items-center justify-end">
           <div className="flex flex-wrap gap-2 items-center">
-            <FaFilter className="text-neutral-400" />
+            <FaFilter className="text-slate-400" />
             <div className="flex gap-2 overflow-x-auto max-w-[20rem] pb-1">
               {categories.map(category => (
                 <button
                   key={category}
                   type="button"
                   onClick={() => setSelectedCategory(category)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                     selectedCategory === category
                       ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
-                      : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                      : 'bg-white/80 dark:bg-neutral-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-700'
                   }`}
                 >
                   {category}
@@ -238,21 +238,23 @@ function VideoGrid({
             </div>
           </div>
 
-          <Button
-            color={recentOnly ? 'info' : 'gray'}
-            size="xs"
+          <button
             onClick={() => setRecentOnly(prev => !prev)}
-            className="rounded-full"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+              recentOnly 
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' 
+                : 'bg-white/80 dark:bg-neutral-800/80 text-slate-650 dark:text-slate-300 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-700'
+            }`}
           >
-            <FaBolt className="mr-1" /> New This Week
-          </Button>
+            <FaBolt className={recentOnly ? 'text-yellow-300' : 'text-slate-400'} /> New This Week
+          </button>
 
           {/* 🔃 Sort Options */}
           <div className="flex gap-2">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="text-sm border border-neutral-300 dark:border-neutral-600 rounded-full px-3 py-1.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-primary focus:border-primary transition-all"
+              className="text-xs border border-slate-200 dark:border-neutral-750 rounded-full px-3 py-1.5 bg-white/80 dark:bg-neutral-800/80 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all outline-none"
               aria-label="Sort By"
             >
               <option value="latest">Latest</option>
@@ -268,7 +270,7 @@ function VideoGrid({
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
-                className="text-sm border border-neutral-300 dark:border-neutral-600 rounded-full px-3 py-1.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-primary focus:border-primary transition-all"
+                className="text-xs border border-slate-200 dark:border-neutral-750 rounded-full px-3 py-1.5 bg-white/80 dark:bg-neutral-800/80 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all outline-none"
                 aria-label="Sort Order"
               >
                 <option value="desc">Desc</option>
@@ -280,37 +282,43 @@ function VideoGrid({
           {/* 🔲 View Toggle */}
           {showViewToggle && (
             <div
-              className="flex items-center space-x-1 bg-neutral-200 dark:bg-neutral-700 rounded-full px-2 py-1 transition-all shadow-inner"
+              className="flex items-center bg-slate-100/80 dark:bg-neutral-800/80 border border-slate-200/50 dark:border-neutral-700/50 backdrop-blur-md rounded-full p-1"
               role="group"
               aria-label="View Mode"
             >
-              <Button
-                size="sm"
-                color={viewMode === 'grid' ? 'info' : 'gray'}
+              <button
                 onClick={() => setViewMode('grid')}
-                className="px-2 py-1 rounded-full transition-all"
+                className={`p-1.5 rounded-full transition-all text-xs ${
+                  viewMode === 'grid' 
+                    ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-white shadow-sm' 
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                }`}
                 aria-label="Grid View"
               >
-                <FaTh />
-              </Button>
-              <Button
-                size="sm"
-                color={viewMode === 'list' ? 'info' : 'gray'}
+                <FaTh size={14} />
+              </button>
+              <button
                 onClick={() => setViewMode('list')}
-                className="px-2 py-1 rounded-full transition-all"
+                className={`p-1.5 rounded-full transition-all text-xs ${
+                  viewMode === 'list' 
+                    ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-white shadow-sm' 
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                }`}
                 aria-label="List View"
               >
-                <FaList />
-              </Button>
-              <Button
-                size="sm"
-                color={viewMode === 'compact' ? 'info' : 'gray'}
+                <FaList size={14} />
+              </button>
+              <button
                 onClick={() => setViewMode('compact')}
-                className="px-2 py-1 rounded-full transition-all"
+                className={`p-1.5 rounded-full transition-all text-xs ${
+                  viewMode === 'compact' 
+                    ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-white shadow-sm' 
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                }`}
                 aria-label="Compact View"
               >
-                <FaGripLines />
-              </Button>
+                <FaGripLines size={14} />
+              </button>
             </div>
           )}
         </div>

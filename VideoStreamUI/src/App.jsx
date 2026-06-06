@@ -7,14 +7,13 @@ import Logo from "./components/common/Logo";
 import {
   HomeIcon,
   SearchIcon,
-  VideosIcon,
   PlayIcon,
   FavoritesIcon,
+  VideosIcon,
   ProfileIcon,
   DeviceIcon,
   HistoryIcon,
   UploadIcon,
-  NotificationsIcon,
   SettingsIcon,
   LoginIcon,
 } from "./components/common/NavigationIcons";
@@ -37,21 +36,18 @@ import SettingsPage from "./pages/SettingsPage";
 import SignInPage from "./pages/auth/SignInPage";
 import SignUpPage from "./pages/auth/SignUpPage";
 import WatchLaterPage from "./pages/WatchLaterPage";
-import NotificationsPage from "./pages/NotificationsPage";
 import WatchPage from "./pages/WatchPage";
-import LandingPage from "./pages/LandingPage";
-import VideosPage from "./pages/VideosPage";
 import ProfilePage from "./pages/ProfilePage";
+import PlaylistsPage from "./pages/PlaylistsPage";
 
 const NAV_ITEMS = [
   { name: "Home", href: "/home", icon: HomeIcon, category: "main" },
   { name: "Search", href: "/search", icon: SearchIcon, category: "main" },
-  { name: "Videos", href: "/videos", icon: VideosIcon, category: "content" },
+  { name: "Playlists", href: "/playlists", icon: VideosIcon, category: "library" },
   { name: "Favorites", href: "/favorites", icon: FavoritesIcon, category: "library" },
   { name: "Watch Later", href: "/watch-later", icon: PlayIcon, category: "library" },
   { name: "History", href: "/history", icon: HistoryIcon, category: "library" },
   { name: "Upload", href: "/upload", icon: UploadIcon, category: "content" },
-  { name: "Notifications", href: "/notifications", icon: NotificationsIcon, category: "account" },
   { name: "Settings", href: "/settings", icon: SettingsIcon, category: "account" },
 ];
 
@@ -106,7 +102,12 @@ function AppContent() {
   }, [isMobile]);
 
   return (
-    <div className="min-h-screen bg-black dark:bg-black">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#07080a] text-slate-900 dark:text-slate-100 transition-colors duration-300 relative overflow-hidden">
+      {/* Global Animated Background Glow Blobs */}
+      <div className="pointer-events-none absolute -top-40 -right-40 w-[40rem] h-[40rem] rounded-full opacity-20 dark:opacity-25 blur-[120px] animate-blob"
+           style={{ background: 'radial-gradient(circle at 30% 30%, rgba(99,102,241,0.45), rgba(99,102,241,0) 70%)' }} />
+      <div className="pointer-events-none absolute -bottom-40 -left-40 w-[45rem] h-[45rem] rounded-full opacity-15 dark:opacity-20 blur-[120px] animate-blob animation-delay-2000"
+           style={{ background: 'radial-gradient(circle at 70% 70%, rgba(236,72,153,0.35), rgba(236,72,153,0) 70%)' }} />
       <Toaster position="top-left" />
 
       {/* Main Layout */}
@@ -146,10 +147,8 @@ function AppContent() {
                 } : false}
                 onMouseEnter={handleSidebarMouseEnter}
                 onMouseLeave={handleSidebarMouseLeave}
-                className={`airtel-sidebar fixed z-40 top-0 left-0 h-screen overflow-hidden ${
+                className={`glass-sidebar fixed z-40 top-0 left-0 h-screen overflow-hidden ${
                   isMobile ? 'w-[280px]' : ''
-                } ${
-                  isMobile ? 'bg-[#1a1d23]' : 'bg-transparent'
                 }`}
               >
                 <div className="h-full flex flex-col overflow-hidden">
@@ -194,8 +193,8 @@ function AppContent() {
                             to={href}
                             className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 group overflow-hidden ${
                               isActive
-                                ? "bg-[#2a2d33] text-[#ffffff]"
-                                : "text-[#e5e5e5] hover:bg-[#2a2d33] hover:text-[#ffffff]"
+                                ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-150/80 dark:hover:bg-neutral-855/60 hover:text-slate-900 dark:hover:text-white"
                             } ${!isMobile && !sidebarExpanded ? 'justify-center' : ''}`}
                             title={!isMobile && !sidebarExpanded ? name : ''}
                           >
@@ -205,8 +204,8 @@ function AppContent() {
                                 size={24} 
                                 className={`transition-colors duration-200 ${
                                   isActive 
-                                    ? 'text-[#ffffff]' 
-                                    : 'text-[#e5e5e5] group-hover:text-[#ffffff]'
+                                    ? 'text-indigo-600 dark:text-indigo-400' 
+                                    : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'
                                 }`}
                               />
                             </div>
@@ -221,8 +220,8 @@ function AppContent() {
                                   transition={{ duration: 0.2, ease: "easeOut" }}
                                   className={`text-sm font-normal whitespace-nowrap ${
                                     isActive 
-                                      ? 'text-[#ffffff] font-medium' 
-                                      : 'text-[#e5e5e5] group-hover:text-[#ffffff]'
+                                      ? 'text-indigo-600 dark:text-indigo-400 font-semibold' 
+                                      : 'text-slate-650 dark:text-slate-400 group-hover:text-slate-950 dark:group-hover:text-white'
                                   }`}
                                 >
                                   {name}
@@ -237,7 +236,7 @@ function AppContent() {
                       {isAuthenticated ? (
                         <Link
                           to="/profile"
-                          className={`flex items-center gap-3 px-3 py-3 rounded-lg text-[#e5e5e5] hover:bg-[#2a2d33] hover:text-[#ffffff] transition-all duration-200 w-full group overflow-hidden ${
+                          className={`flex items-center gap-3 px-3 py-3 rounded-lg text-slate-650 dark:text-slate-400 hover:bg-slate-150/80 dark:hover:bg-neutral-855/60 hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full group overflow-hidden ${
                             !isMobile && !sidebarExpanded ? 'justify-center' : ''
                           }`}
                           title={!isMobile && !sidebarExpanded ? 'Profile' : ''}
@@ -265,7 +264,7 @@ function AppContent() {
                       ) : (
                         <Link
                           to="/signin"
-                          className={`flex items-center gap-3 px-3 py-3 rounded-lg text-[#e5e5e5] hover:bg-[#2a2d33] hover:text-[#ffffff] transition-all duration-200 group overflow-hidden ${
+                          className={`flex items-center gap-3 px-3 py-3 rounded-lg text-slate-650 dark:text-slate-400 hover:bg-slate-150/80 dark:hover:bg-neutral-855/60 hover:text-slate-900 dark:hover:text-white transition-all duration-200 group overflow-hidden ${
                             !isMobile && !sidebarExpanded ? 'justify-center' : ''
                           }`}
                           title={!isMobile && !sidebarExpanded ? 'Log In' : ''}
@@ -321,15 +320,16 @@ function AppContent() {
               mass: 0.8
             }
           } : {}}
-          className={`flex-1 p-4 w-full bg-neutral-50 dark:bg-neutral-900 min-h-screen ${
+          className={`flex-1 p-6 w-full bg-transparent min-h-screen ${
             isMobile ? '' : ''
           }`}
         >
           <div key={location.pathname} className="animate-fade-in-up">
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/playlists" element={<PlaylistsPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/history" element={<HistoryPage />} />
@@ -339,9 +339,7 @@ function AppContent() {
             <Route path="/login" element={<SignInPage />} />
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/watch-later" element={<WatchLaterPage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/watch/:videoId" element={<WatchPage />} />
-            <Route path="/videos" element={<VideosPage />} />
           </Routes>
           </div>
         </motion.main>

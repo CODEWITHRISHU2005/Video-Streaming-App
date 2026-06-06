@@ -105,13 +105,7 @@ function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-black font-sans text-neutral-900 dark:text-white relative overflow-hidden transition-colors duration-300">
-      {/* Animated Background Blobs */}
-      <div className="pointer-events-none absolute -top-32 -right-32 w-[30rem] h-[30rem] rounded-full opacity-30 blur-3xl animate-pulse"
-           style={{ background: 'radial-gradient(circle at 30% 30%, rgba(79,70,229,0.6), rgba(79,70,229,0) 60%)', animationDuration: '4s' }} />
-      <div className="pointer-events-none absolute -bottom-40 -left-40 w-[36rem] h-[36rem] rounded-full opacity-25 blur-3xl animate-pulse"
-           style={{ background: 'radial-gradient(circle at 70% 70%, rgba(236,72,153,0.55), rgba(236,72,153,0) 60%)', animationDelay: '1s', animationDuration: '5s' }} />
-
+    <div className="min-h-screen bg-transparent font-sans text-slate-900 dark:text-slate-100 relative overflow-hidden transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
         {/* Header */}
         <motion.div
@@ -145,7 +139,7 @@ function SettingsPage() {
         >
           {/* Video Player Settings */}
           <motion.div variants={itemVariants}>
-            <div className="h-full rounded-3xl bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden group">
+            <div className="h-full glass-card rounded-3xl overflow-hidden group">
               <div className="p-1 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
               <div className="p-8">
                 <div className="flex items-center gap-4 mb-8">
@@ -243,7 +237,7 @@ function SettingsPage() {
 
           {/* Interface Settings */}
           <motion.div variants={itemVariants}>
-            <div className="h-full rounded-3xl bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden group">
+            <div className="h-full glass-card rounded-3xl overflow-hidden group">
               <div className="p-1 h-1 bg-gradient-to-r from-green-500 to-teal-400 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
               <div className="p-8">
                 <div className="flex items-center gap-4 mb-8">
@@ -299,7 +293,7 @@ function SettingsPage() {
 
           {/* Download Settings */}
           <motion.div variants={itemVariants}>
-            <div className="h-full rounded-3xl bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden group">
+            <div className="h-full glass-card rounded-3xl overflow-hidden group">
               <div className="p-1 h-1 bg-gradient-to-r from-purple-500 to-pink-400 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
               <div className="p-8">
                 <div className="flex items-center gap-4 mb-8">
@@ -348,7 +342,7 @@ function SettingsPage() {
 
           {/* Data Management */}
           <motion.div variants={itemVariants}>
-            <div className="h-full rounded-3xl bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden group">
+            <div className="h-full glass-card rounded-3xl overflow-hidden group">
               <div className="p-1 h-1 bg-gradient-to-r from-orange-500 to-red-500 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
               <div className="p-8">
                 <div className="flex items-center gap-4 mb-8">
