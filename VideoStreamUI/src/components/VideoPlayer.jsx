@@ -57,10 +57,16 @@ export default function VideoPlayer({
   const hlsRef = useRef(null);
   const qualitySelectorInitialized = useRef(false);
   const onEndedRef = useRef(onEnded);
+  const videoDataRef = useRef(videoData);
 
   useEffect(() => {
     onEndedRef.current = onEnded;
   }, [onEnded]);
+
+  useEffect(() => {
+    videoDataRef.current = videoData;
+  }, [videoData]);
+
   const stallRetriesRef = useRef(0);
 
   const [isBuffering, setIsBuffering] = useState(false);
@@ -265,6 +271,11 @@ export default function VideoPlayer({
     player.on('pause', () => {
       setShowPlayPauseOverlay(true);
       setTimeout(() => setShowPlayPauseOverlay(false), 500);
+      // Save progress immediately on pause
+      const currentVideoId = videoDataRef.current?.id;
+      if (currentVideoId) {
+        localStorage.setItem(`video_progress_${currentVideoId}`, player.currentTime().toString());
+      }
     });
 
     player.on('fullscreenchange', () => {
@@ -275,13 +286,59 @@ export default function VideoPlayer({
       setPlaybackSpeed(player.playbackRate());
     });
 
+    player.on('loadedmetadata', () => {
+      const currentVideoId = videoDataRef.current?.id;
+      if (currentVideoId) {
+        const savedTime = localStorage.getItem(`video_progress_${currentVideoId}`);
+        if (savedTime) {
+          const time = parseFloat(savedTime);
+          if (!isNaN(time) && time > 0) {
+            player.currentTime(time);
+          }
+        }
+      }
+    });
+
+    let lastSaveTime = 0;
+    player.on('timeupdate', () => {
+      const currentVideoId = videoDataRef.current?.id;
+      if (currentVideoId) {
+        const currentTime = player.currentTime();
+        const now = Date.now();
+        // Save progress at most once every 2 seconds
+        if (now - lastSaveTime > 2000) {
+          localStorage.setItem(`video_progress_${currentVideoId}`, currentTime.toString());
+          lastSaveTime = now;
+        }
+      }
+    });
+
     player.on('ended', () => {
+      const currentVideoId = videoDataRef.current?.id;
+      if (currentVideoId) {
+        localStorage.removeItem(`video_progress_${currentVideoId}`);
+      }
       onEndedRef.current?.();
     });
 
     playerRef.current = player;
 
     return () => {
+      // Save final progress on unmount/dispose
+      const currentVideoId = videoDataRef.current?.id;
+      if (currentVideoId && playerRef.current) {
+        try {
+          const currentTime = playerRef.current.currentTime();
+          const duration = playerRef.current.duration() || 0;
+          // Only save if the video has progressed and is not finished
+          if (currentTime > 0 && (duration === 0 || currentTime < duration - 2)) {
+            localStorage.setItem(`video_progress_${currentVideoId}`, currentTime.toString());
+          }
+        } catch (e) {
+          console.error('Failed to save progress on unmount:', e);
+        }
+      }
+
       playerRef.current?.dispose();
       playerRef.current = null;
 

@@ -39,6 +39,7 @@ import WatchLaterPage from "./pages/WatchLaterPage";
 import WatchPage from "./pages/WatchPage";
 import ProfilePage from "./pages/ProfilePage";
 import PlaylistsPage from "./pages/PlaylistsPage";
+import FloatingPlayer from "./components/video/FloatingPlayer";
 
 const NAV_ITEMS = [
   { name: "Home", href: "/home", icon: HomeIcon, category: "main" },
@@ -363,6 +364,8 @@ function AppContent() {
           />
         )}
       </AnimatePresence>
+
+      <FloatingPlayer />
 
     </div>
   );

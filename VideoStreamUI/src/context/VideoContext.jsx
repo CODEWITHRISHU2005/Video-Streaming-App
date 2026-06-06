@@ -330,6 +330,10 @@ export const VideoProvider = ({ children }) => {
     dispatch({ type: 'SET_USER_PREFERENCES', payload: prefs });
   }, []);
 
+  const setIsPlaying = useCallback(playing => {
+    dispatch({ type: 'SET_IS_PLAYING', payload: playing });
+  }, []);
+
   const contextValue = useMemo(() => ({
     ...state,
     fetchVideos,
@@ -341,7 +345,8 @@ export const VideoProvider = ({ children }) => {
     toggleFavorite,
     addToWatchLater,
     removeFromWatchLater,
-    updateUserPreferences
+    updateUserPreferences,
+    setIsPlaying
   }), [
     state,
     fetchVideos,
@@ -353,7 +358,8 @@ export const VideoProvider = ({ children }) => {
     toggleFavorite,
     addToWatchLater,
     removeFromWatchLater,
-    updateUserPreferences
+    updateUserPreferences,
+    setIsPlaying
   ]);
 
   return (
