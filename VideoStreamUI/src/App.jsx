@@ -119,7 +119,7 @@ function AppContent() {
             <>
               {/* Sidebar */}
               <motion.aside
-                initial={isMobile ? { x: -280 } : { width: 120 }}
+                initial={isMobile ? { x: -280 } : { x: -120, opacity: 0, width: 120 }}
                 animate={isMobile ? { 
                   x: sidebarOpen ? 0 : -280,
                   transition: { 
@@ -129,12 +129,13 @@ function AppContent() {
                     mass: 0.8
                   }
                 } : {
+                  x: 0,
+                  opacity: 1,
                   width: sidebarExpanded ? 280 : 120,
                   transition: {
-                    type: "spring",
-                    damping: 30,
-                    stiffness: 300,
-                    mass: 0.8
+                    x: { type: "spring", stiffness: 60, damping: 15, delay: 0.25 },
+                    opacity: { duration: 0.4, delay: 0.25 },
+                    width: { type: "spring", damping: 30, stiffness: 300, mass: 0.8 }
                   }
                 }}
                 exit={isMobile ? { 
@@ -312,15 +313,18 @@ function AppContent() {
 
         {/* Main Content Area */}
         <motion.main
+          initial={!isMobile ? { marginLeft: 0, opacity: 0 } : { opacity: 0 }}
           animate={!isMobile ? {
             marginLeft: sidebarExpanded ? 280 : 120,
+            opacity: 1,
             transition: {
-              type: "spring",
-              damping: 30,
-              stiffness: 300,
-              mass: 0.8
+              marginLeft: { type: "spring", damping: 30, stiffness: 300, mass: 0.8 },
+              opacity: { duration: 0.5, delay: 0.3 }
             }
-          } : {}}
+          } : {
+            opacity: 1,
+            transition: { duration: 0.5, delay: 0.3 }
+          }}
           className={`flex-1 p-6 w-full bg-transparent min-h-screen ${
             isMobile ? '' : ''
           }`}

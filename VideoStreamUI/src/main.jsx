@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { AnimatePresence } from 'framer-motion';
 import App from './App.jsx';
 import './index.css';
 import LoadingScreen from './components/LoadingScreen.jsx';
@@ -21,7 +22,9 @@ function Main() {
 
   return (
     <React.StrictMode>
-      {isLoading && <LoadingScreen />}
+      <AnimatePresence mode="wait">
+        {isLoading && <LoadingScreen key="loading" />}
+      </AnimatePresence>
       <GoogleOAuthProvider clientId={clientId}>
         <Router>
           <App />

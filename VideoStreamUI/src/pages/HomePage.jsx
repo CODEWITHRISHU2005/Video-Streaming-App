@@ -8,6 +8,31 @@ import { formatUploadDate, formatDuration } from '../utils/videoUtils';
 import { mapVideoDetails } from '../utils/mapVideoDetails';
 import { Link, useNavigate } from 'react-router-dom';
 
+const pageVariants = {
+  initial: { opacity: 0 },
+  animate: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.2,
+      delayChildren: 0.15,
+    }
+  }
+};
+
+const sectionVariants = {
+  initial: { opacity: 0, y: 30 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 70,
+      damping: 15,
+      mass: 0.8
+    }
+  }
+};
+
 export default function HomePage() {
   const {
     videos: rawVideos,
@@ -132,13 +157,7 @@ export default function HomePage() {
     setActiveSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
-  useEffect(() => {
-    const sections = document.querySelectorAll('section');
-    sections.forEach((section, index) => {
-      section.style.animationDelay = `${index * 0.1}s`;
-      section.classList.add('animate-fade-in');
-    });
-  }, []);
+
 
   if (isLoading) {
     return (
@@ -154,8 +173,17 @@ export default function HomePage() {
   }
 
   return (
-    <div className="max-w-[90rem] mx-auto space-y-16 pt-4 pb-16 px-6 sm:px-8 lg:px-12 min-h-screen font-sans text-slate-900 dark:text-slate-100 relative overflow-hidden">
-      <section className="relative text-white rounded-3xl shadow-2xl h-[420px] sm:h-[480px] md:h-[520px] overflow-hidden animate-fade-in-up" aria-label="Trending Carousel Banner">
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      className="max-w-[90rem] mx-auto space-y-16 pt-4 pb-16 px-6 sm:px-8 lg:px-12 min-h-screen font-sans text-slate-900 dark:text-slate-100 relative overflow-hidden"
+    >
+      <motion.section 
+        variants={sectionVariants}
+        className="relative text-white rounded-3xl shadow-2xl h-[420px] sm:h-[480px] md:h-[520px] overflow-hidden" 
+        aria-label="Trending Carousel Banner"
+      >
         {/* Background Image Carousel with Fading Crossfade */}
         <div className="absolute inset-0 w-full h-full">
           <AnimatePresence mode="wait">
@@ -312,9 +340,13 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="space-y-6 animate-fade-in-up" aria-label="Featured Videos">
+      <motion.section 
+        variants={sectionVariants}
+        className="space-y-6" 
+        aria-label="Featured Videos"
+      >
         <div className="flex items-center justify-between">
           <h2 className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-yellow-400 flex items-center gap-2">
             <FaPlay className="text-yellow-300" /> Featured Videos
@@ -410,9 +442,13 @@ export default function HomePage() {
             );
           })}
         </div>
-      </section>
+      </motion.section>
 
-      <section className="space-y-6 animate-fade-in-up" aria-label="All Videos">
+      <motion.section 
+        variants={sectionVariants}
+        className="space-y-6" 
+        aria-label="All Videos"
+      >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-pink-500">
             All Videos
@@ -427,7 +463,7 @@ export default function HomePage() {
           showSearch
           showViewToggle
         />
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
