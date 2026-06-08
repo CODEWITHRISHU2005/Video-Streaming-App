@@ -8,14 +8,15 @@ import com.CodeWithRishu.Video_Streaming_App.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
@@ -26,16 +27,15 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OttService {
 
-    private final JavaMailSender javaMailSender;
     private final OttTokenRepository ottTokenRepository;
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
 
+    @Value("${msg91.auth-key}")
+    private String authKey;
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
-    @Value("${spring.mail.from}")
-    private String mailFrom;
     @Value("${ott.token.expiry.seconds}")
     private long tokenExpirySeconds;
 
@@ -75,33 +75,33 @@ public class OttService {
     @Async
     public void sendOttNotification(User user, String magicLink) {
         try {
-            SimpleMailMessage message = getSimpleMailMessage(user, magicLink);
-            javaMailSender.send(message);
-            log.info("Magic link email sent successfully to {}", user.getEmail());
-        } catch (MailException e) {
-            log.error("Failed to send magic link email to {}: {}", user.getEmail(), e.getMessage(), e);
-            throw new RuntimeException("Failed to send notification email.", e);
+            String message = String.format(
+                    "Hello %s,\n\nClick the link below to sign in to your VideoStream account:\n%s\n\nThis link is valid for %d minutes.",
+                    user.getName(), magicLink, tokenExpirySeconds / 60
+            );
+
+            // Build JSON payload for MSG91 SMS API
+            String payload = String.format(
+                    "{\"authkey\":\"%s\",\"mobiles\":\"%s\",\"message\":\"%s\",\"sender\":\"TESTID\",\"route\":\"4\"}",
+                    authKey, user.getPhoneNumber(), message.replace("\"", "\\\"")
+            );
+
+            HttpClient client = HttpClient.newHttpClient();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.msg91.com/api/v5/sms"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(payload))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            log.info("Magic link SMS sent to {}. Response: {}", user.getPhoneNumber(), response.body());
+
+        } catch (Exception e) {
+            log.error("Failed to send magic link SMS to {}: {}", user.getPhoneNumber(), e.getMessage(), e);
+            throw new RuntimeException("Failed to send notification SMS.", e);
         }
-    }
-
-    private SimpleMailMessage getSimpleMailMessage(User user, String magicLink) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(mailFrom);
-        message.setTo(user.getEmail());
-        message.setSubject("Your VideoStream Sign-In Link");
-
-        String messageBody = String.format("""
-                 Hello %s,
-                
-                 Click the link below to sign in to your VideoStream account:
-                
-                 %s
-                
-                 This link is valid for %d minutes. If you did not request this, please ignore this email.
-                """, user.getName(), magicLink, tokenExpirySeconds / 60);
-
-        message.setText(messageBody);
-        return message;
     }
 
     public JwtResponse loginWithOttToken(String token) {
@@ -120,16 +120,16 @@ public class OttService {
 
         User user = ottToken.getUser();
         List<String> finalFactors = List.of("OTP_AUTHORITY", "OTT_AUTHORITY");
-        String aaccessToken = jwtService.generateMfaToken(user, finalFactors);
+        String accessToken = jwtService.generateMfaToken(user, finalFactors);
         String refreshToken = refreshTokenService.createRefreshToken(user.getEmail()).getToken();
 
         ottTokenRepository.delete(ottToken);
         log.debug("Consumed and deleted OTT token for user: {}", user);
 
         return JwtResponse.builder()
-                .accessToken(aaccessToken)
+                .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
     }
-
+    
 }

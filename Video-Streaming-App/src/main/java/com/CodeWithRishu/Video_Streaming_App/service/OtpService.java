@@ -13,8 +13,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Optional;
@@ -145,20 +148,28 @@ public class OtpService {
 
     private boolean sendSms(String toPhone, String otp) {
         try {
-            String url = "https://api.msg91.com/api/v5/otp?authkey=" + authKey +
-                    "&mobile=" + toPhone +
-                    "&otp=" + otp;
+            String url = String.format(
+                    "https://api.msg91.com/api/v5/otp?authkey=%s&mobile=%s&otp=%s",
+                    authKey, toPhone, otp
+            );
 
-            RestTemplate restTemplate = new RestTemplate();
-            String response = restTemplate.getForObject(url, String.class);
+            HttpClient client = HttpClient.newHttpClient();
 
-            log.info("SMS sent successfully. Response: {}", response);
-            return true;
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            log.info("MSG91 SMS Response: {}", response.body());
+            return response.statusCode() == 200;
         } catch (Exception e) {
             log.error("Error sending SMS via MSG91", e);
             return false;
         }
     }
+
 
     private String maskPhone(String phone) {
         if (phone == null || phone.length() < 4) {
