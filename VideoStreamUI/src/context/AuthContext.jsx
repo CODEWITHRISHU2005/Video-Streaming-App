@@ -87,6 +87,16 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const response = await userAPI.login(credentials);
+      
+      // Check if Multi-Factor Authentication is required
+      if (response?.mfaRequired) {
+        return {
+          success: true,
+          mfaRequired: true,
+          message: response?.message || 'OTP verified successfully. Please proceed to request a sign-in link.'
+        };
+      }
+
       // Handle different response structures
       const token = response?.token || response?.data?.token || response?.accessToken;
       const refreshToken = response?.refreshToken || response?.data?.refreshToken;

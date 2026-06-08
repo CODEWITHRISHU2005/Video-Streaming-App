@@ -11,12 +11,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -30,8 +32,8 @@ public class OttService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
 
-    @Value("${app.api.base-url}")
-    private String appBaseUrl;
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
     @Value("${spring.mail.from}")
     private String mailFrom;
     @Value("${ott.token.expiry.seconds}")
@@ -60,8 +62,8 @@ public class OttService {
         ottTokenRepository.save(ottToken);
         log.info("Created new OTT token for user: {}", user.getName());
 
-        String magicLink = UriComponentsBuilder.fromHttpUrl(appBaseUrl)
-                .path("/api/ott/login")
+        String magicLink = UriComponentsBuilder.fromUriString(frontendUrl)
+                .path("/login")
                 .queryParam("token", tokenValue)
                 .toUriString();
 
@@ -70,7 +72,8 @@ public class OttService {
         sendOttNotification(user, magicLink);
     }
 
-    private void sendOttNotification(User user, String magicLink) {
+    @Async
+    public void sendOttNotification(User user, String magicLink) {
         try {
             SimpleMailMessage message = getSimpleMailMessage(user, magicLink);
             javaMailSender.send(message);
@@ -115,14 +118,17 @@ public class OttService {
             throw new IllegalArgumentException("Token expired, please request a new one.");
         }
 
-        String email = ottToken.getUser().getEmail();
-        String jwt = jwtService.generateToken(ottToken.getUser());
-        log.debug("Generated JWT for user: {}", email);
-        log.info("Generated JWT for user: {}", email);
+        User user = ottToken.getUser();
+        List<String> finalFactors = List.of("OTP_AUTHORITY", "OTT_AUTHORITY");
+        String aaccessToken = jwtService.generateMfaToken(user, finalFactors);
+        String refreshToken = refreshTokenService.createRefreshToken(user.getEmail()).getToken();
+
+        ottTokenRepository.delete(ottToken);
+        log.debug("Consumed and deleted OTT token for user: {}", user);
 
         return JwtResponse.builder()
-                .accessToken(jwt)
-                .refreshToken(refreshTokenService.createRefreshToken(email).getToken())
+                .accessToken(aaccessToken)
+                .refreshToken(refreshToken)
                 .build();
     }
 

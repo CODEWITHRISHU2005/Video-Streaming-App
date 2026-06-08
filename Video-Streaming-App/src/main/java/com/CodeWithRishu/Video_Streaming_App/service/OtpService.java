@@ -12,13 +12,14 @@ import com.twilio.type.PhoneNumber;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.Random;
 
 @Service
 @Slf4j
@@ -42,6 +43,7 @@ public class OtpService {
     private void initTwilio() {
         Twilio.init(accountSid, authToken);
     }
+    SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
     public OtpResponse sendOtp(OtpRequest otpRequest) {
@@ -56,8 +58,6 @@ public class OtpService {
 
             if (!phoneNumber.startsWith("+91"))
                 phoneNumber = "+91" + phoneNumber;
-
-            cleanupExpiredOtps();
 
             OtpVerification verification = OtpVerification.builder()
                     .phone(phoneNumber)
@@ -140,11 +140,10 @@ public class OtpService {
     }
 
     private String generateOtp() {
-        Random random = new Random();
         StringBuilder otp = new StringBuilder();
 
         for (int i = 0; i < otpLength; i++)
-            otp.append(random.nextInt(10));
+            otp.append(secureRandom.nextInt(10));
 
         return otp.toString();
     }
@@ -181,6 +180,7 @@ public class OtpService {
         return "****" + phone.substring(phone.length() - 4);
     }
 
+    @Scheduled(fixedRateString = "${app.otp.cleanup-rate:300000}")
     @Transactional
     public void cleanupExpiredOtps() {
         int deleted = otpRepository.deleteByExpiresAtBefore(Instant.now());

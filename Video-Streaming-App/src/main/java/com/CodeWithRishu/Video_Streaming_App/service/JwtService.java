@@ -12,9 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Slf4j
@@ -66,10 +64,15 @@ public class JwtService {
     }
 
     public String generateToken(User user) {
+        return generateMfaToken(user, List.of());
+    }
+
+    public String generateMfaToken(User user, List<String> factors) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("name", user.getName());
         claims.put("email", user.getEmail());
+        claims.put("authorities", factors);
 
         String token = createToken(claims, user.getEmail());
 
@@ -79,6 +82,10 @@ public class JwtService {
         return token;
     }
 
+    public List<String> extractFactorClaims(String token) {
+        List<String> factors = extractClaim(token, claims -> claims.get("authorities", List.class));
+        return factors == null ? List.of() : factors;
+    }
 
     private String createToken(Map<String, Object> claims, String email) {
         log.debug("Creating token for user '{}'", email);
@@ -95,5 +102,4 @@ public class JwtService {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
-
 }

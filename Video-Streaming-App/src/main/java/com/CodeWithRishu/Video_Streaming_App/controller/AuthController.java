@@ -15,9 +15,13 @@ import com.CodeWithRishu.Video_Streaming_App.service.RefreshTokenService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -30,8 +34,7 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
 
     @PostMapping("/signIn")
-    @ResponseStatus(HttpStatus.OK)
-    public JwtResponse authenticateAndGetToken(@Valid @RequestBody OtpRequest otpRequest) {
+    public ResponseEntity<?> authenticateAndGetToken(@Valid @RequestBody OtpRequest otpRequest) {
         OtpResponse verifyOtpResponse = otpService.verifyOtp(otpRequest);
 
         if (!verifyOtpResponse.success()) {
@@ -44,9 +47,14 @@ public class AuthController {
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(otpRequest.email());
         User user = refreshToken.getUserInfo();
 
-        return JwtResponse.builder()
-                .accessToken(jwtService.generateToken(user))
-                .refreshToken(refreshToken.getToken()).build();
+        String partialToken = jwtService.generateMfaToken(user, List.of("OTP_AUTHORITY"));
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "mfaRequired", true,
+                "accessToken", partialToken,
+                "message", "OTP verified successfully. Please proceed to request a sign-in link."
+        ));
     }
 
     @PostMapping("/signUp")
@@ -55,9 +63,13 @@ public class AuthController {
         authService.register(userInfo);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(userInfo.getEmail());
 
+        List<String> authorities = List.of("OTP_AUTHORITY", "OTT_AUTHORITY");
+        String accessToken = jwtService.generateMfaToken(userInfo, authorities);
+
         return JwtResponse.builder()
-                .accessToken(jwtService.generateToken(userInfo))
-                .refreshToken(refreshToken.getToken()).build();
+                .accessToken(accessToken)
+                .refreshToken(refreshToken.getToken())
+                .build();
     }
 
     @PostMapping("/refreshToken")
@@ -67,7 +79,8 @@ public class AuthController {
                 .map(refreshTokenService::verifyExpiration)
                 .map(RefreshToken::getUserInfo)
                 .map(userInfo -> {
-                    String accessToken = jwtService.generateToken(userInfo);
+                    List<String> authorities = List.of("OTP_AUTHORITY", "OTT_AUTHORITY");
+                    String accessToken = jwtService.generateMfaToken(userInfo, authorities);
                     return JwtResponse.builder()
                             .accessToken(accessToken)
                             .refreshToken(refreshTokenRequest.token())

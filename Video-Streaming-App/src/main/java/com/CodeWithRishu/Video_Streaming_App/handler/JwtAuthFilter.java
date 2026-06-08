@@ -11,6 +11,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 @Slf4j
@@ -60,12 +62,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
                 if (Boolean.TRUE.equals(jwtService.validateToken(token, userDetails))) {
+
+                    List<String> factorClaims = jwtService.extractFactorClaims(token);
+
+                    List<FactorGrantedAuthority> authorities = factorClaims.stream()
+                            .map(FactorGrantedAuthority::fromAuthority)
+                            .toList();
+
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
                                     null,
-                                    userDetails.getAuthorities()
+                                    authorities
                             );
+
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }

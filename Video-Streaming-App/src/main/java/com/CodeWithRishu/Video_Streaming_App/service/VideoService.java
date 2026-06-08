@@ -1,7 +1,6 @@
 package com.CodeWithRishu.Video_Streaming_App.service;
 
 import com.CodeWithRishu.Video_Streaming_App.entity.Video;
-import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;

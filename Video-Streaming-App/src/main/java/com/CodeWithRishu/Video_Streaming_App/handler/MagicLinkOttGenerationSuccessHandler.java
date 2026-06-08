@@ -1,5 +1,6 @@
 package com.CodeWithRishu.Video_Streaming_App.handler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -10,14 +11,15 @@ import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.security.authentication.ott.OneTimeToken;
 import org.springframework.security.web.authentication.ott.OneTimeTokenGenerationSuccessHandler;
-import org.springframework.security.web.authentication.ott.RedirectOneTimeTokenGenerationSuccessHandler;
 import org.springframework.security.web.util.UrlUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Component
 @Slf4j
@@ -25,30 +27,40 @@ import java.util.concurrent.CompletableFuture;
 public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerationSuccessHandler {
 
     private final MailSender mailSender;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final ExecutorService emailExecutor = Executors.newFixedThreadPool(10);
 
     @Value("${ott.token.expiry.seconds}")
     private int magicLinkExpirySeconds;
-
-    private final OneTimeTokenGenerationSuccessHandler redirectHandler =
-            new RedirectOneTimeTokenGenerationSuccessHandler("/ott/sent");
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, OneTimeToken oneTimeToken)
             throws IOException, ServletException {
 
         String magicLink = buildMagicLink(request, oneTimeToken);
-        log.info("Generated magic link for user {}: {}", oneTimeToken.getUsername(), magicLink);
-
         String username = oneTimeToken.getUsername();
-        String recipientEmail = this.getUserEmail(username);
+        String recipientEmail = getUserEmail(username);
+
+        log.info("Generated magic link for user {}: {}", username, magicLink);
+
         sendMagicLinkAsync(recipientEmail, magicLink, username);
 
-        this.redirectHandler.handle(request, response, oneTimeToken);
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.setContentType("application/json");
+        response.getWriter().write(objectMapper.writeValueAsString(
+                Map.of(
+                        "success", true,
+                        "message", "Magic link sent to your email"
+                )
+        ));
     }
 
     private String buildMagicLink(HttpServletRequest request, OneTimeToken oneTimeToken) {
         return UriComponentsBuilder
-                .fromHttpUrl(UrlUtils.buildFullRequestUrl(request))
+                .fromUriString(UrlUtils.buildFullRequestUrl(request))
                 .replacePath(request.getContextPath())
                 .replaceQuery(null)
                 .fragment(null)
@@ -64,22 +76,15 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
     }
 
     private void sendMagicLinkAsync(String recipientEmail, String magicLink, String username) {
-        CompletableFuture.runAsync(() -> sendMagicLinkEmail(recipientEmail, magicLink, username))
-                .exceptionally(throwable -> {
-                    log.error("Failed to send magic link email to user: {}", username, throwable);
-                    return null;
-                });
-    }
-
-    private void sendMagicLinkEmail(String recipientEmail, String magicLink, String username) {
-        try {
-            SimpleMailMessage message = createEmailMessage(recipientEmail, magicLink, username);
-            mailSender.send(message);
-            log.info("Magic link email sent successfully to: {}", recipientEmail);
-        } catch (Exception e) {
-            log.error("Failed to send magic link email to: {}", recipientEmail, e);
-            throw new RuntimeException("Failed to send magic link email", e);
-        }
+        emailExecutor.submit(() -> {
+            try {
+                SimpleMailMessage message = createEmailMessage(recipientEmail, magicLink, username);
+                mailSender.send(message);
+                log.info("Magic link email sent successfully to: {}", recipientEmail);
+            } catch (Exception e) {
+                log.error("Failed to send magic link email to: {}", recipientEmail, e);
+            }
+        });
     }
 
     private SimpleMailMessage createEmailMessage(String recipientEmail, String magicLink, String username) {
@@ -109,4 +114,5 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
                 This is an automated message. Please do not reply to this email.
                 """, username, magicLink, magicLinkExpirySeconds / 60);
     }
+
 }
