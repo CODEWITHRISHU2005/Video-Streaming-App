@@ -108,6 +108,9 @@ public class OtpService {
                 return new OtpResponse(false, "OTP has expired. Please otpRequest a new OTP.", null);
 
             if (verification.getOtp().equals(otpVerifyRequest.otp())) {
+                otpRepository.deleteByUserAndVerifiedTrue(user);
+                otpRepository.flush();
+
                 verification.setVerified(true);
                 verification.setUser(user);
                 otpRepository.save(verification);
@@ -131,6 +134,7 @@ public class OtpService {
         return verification.isPresent();
     }
 
+    @Transactional
     public OtpResponse resendOtp(OtpRequest otpRequest) {
         log.info("Resending OTP to phone: {}", maskPhone(otpRequest.phone()));
 
