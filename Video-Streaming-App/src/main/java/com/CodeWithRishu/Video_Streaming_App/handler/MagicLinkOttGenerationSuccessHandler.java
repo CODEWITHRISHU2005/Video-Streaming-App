@@ -27,7 +27,7 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
 
     @Value("${ott.token.expiry.seconds}")
     private int magicLinkExpirySeconds;
-    @Value("${app.frontend.url:http://localhost:5173}")
+    @Value("${app.frontend.url}")
     private String frontendUrl;
     @Value("${msg91.auth-key}")
     private String authKey;
