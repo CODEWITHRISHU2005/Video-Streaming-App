@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.mail.MailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -41,20 +42,22 @@ public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
-    private final MailSender mailSender;
 
     @Value("${app.auth.failure-redirect}")
     private String failureRedirectURL;
     @Value("${app.auth.success-redirect}")
     private String successRedirectURL;
 
+    @Bean
+    public MailSender mailSender() {
+        return new JavaMailSenderImpl();
+    }
+
     public SecurityConfig(
             UserDetailsService userDetailsService,
-            MailSender mailSender,
             @Lazy OAuth2SuccessHandler oAuth2SuccessHandler
     ) {
         this.userDetailsService = userDetailsService;
-        this.mailSender = mailSender;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
     }
 
@@ -136,7 +139,7 @@ public class SecurityConfig {
 
     @Bean
     public MagicLinkOttGenerationSuccessHandler oneTimeTokenGenerationSuccessHandler() {
-        return new MagicLinkOttGenerationSuccessHandler(mailSender);
+        return new MagicLinkOttGenerationSuccessHandler(mailSender());
     }
 
     @Bean
