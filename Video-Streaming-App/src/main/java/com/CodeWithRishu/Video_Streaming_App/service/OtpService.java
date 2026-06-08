@@ -6,9 +6,6 @@ import com.CodeWithRishu.Video_Streaming_App.entity.OtpVerification;
 import com.CodeWithRishu.Video_Streaming_App.entity.User;
 import com.CodeWithRishu.Video_Streaming_App.repository.OtpVerificationRepository;
 import com.CodeWithRishu.Video_Streaming_App.repository.UserRepository;
-import com.twilio.Twilio;
-import com.twilio.rest.api.v2010.account.Message;
-import com.twilio.type.PhoneNumber;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -29,21 +27,14 @@ public class OtpService {
     private final OtpVerificationRepository otpRepository;
     private final UserRepository userRepository;
 
-    @Value("${twilio.account-sid}")
-    private String accountSid;
-    @Value("${twilio.auth-token}")
-    private String authToken;
-    @Value("${twilio.phone-number}")
-    private String fromPhoneNumber;
+    @Value("${msg91.auth-key}")
+    private String authKey;
     @Value("${app.otp.expiration-ms:300000}")
     private long otpExpiration;
     @Value("${app.otp.length}")
     private int otpLength;
 
-    private void initTwilio() {
-        Twilio.init(accountSid, authToken);
-    }
-    SecureRandom secureRandom = new SecureRandom();
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
     public OtpResponse sendOtp(OtpRequest otpRequest) {
@@ -154,25 +145,17 @@ public class OtpService {
 
     private boolean sendSms(String toPhone, String otp) {
         try {
-            initTwilio();
+            String url = "https://api.msg91.com/api/v5/otp?authkey=" + authKey +
+                    "&mobile=" + toPhone +
+                    "&otp=" + otp;
 
-            String messageBody = String.format(
-                    "Your verification code is: %s%n%nThis code will expire in %d minutes.%n%nIf you didn't otpRequest this, please ignore this message.",
-                    otp,
-                    (otpExpiration / 1000) / 60
-            );
+            RestTemplate restTemplate = new RestTemplate();
+            String response = restTemplate.getForObject(url, String.class);
 
-            Message message = Message.creator(
-                    new PhoneNumber(toPhone),
-                    new PhoneNumber(fromPhoneNumber),
-                    messageBody
-            ).create();
-
-            log.info("SMS sent successfully. SID: {}", message.getSid());
+            log.info("SMS sent successfully. Response: {}", response);
             return true;
-
         } catch (Exception e) {
-            log.error("Error sending SMS via Twilio", e);
+            log.error("Error sending SMS via MSG91", e);
             return false;
         }
     }
