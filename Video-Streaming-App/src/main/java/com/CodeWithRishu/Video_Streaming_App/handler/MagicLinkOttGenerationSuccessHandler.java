@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.ott.OneTimeToken;
 import org.springframework.security.web.authentication.ott.OneTimeTokenGenerationSuccessHandler;
@@ -23,10 +24,10 @@ import java.util.concurrent.CompletableFuture;
 
 @Component
 @Slf4j
-@RequiredArgsConstructor
 public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerationSuccessHandler {
 
-    private final ObjectMapper objectMapper;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -37,8 +38,11 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
     @Value("${ott.token.expiry.seconds}")
     private int magicLinkExpirySeconds;
 
-    @Value("${app.frontend.url:http://localhost:5173}")
+    @Value("${app.frontend.url}")
     private String frontendUrl;
+
+    public MagicLinkOttGenerationSuccessHandler() {
+    }
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, OneTimeToken oneTimeToken)
