@@ -1,41 +1,38 @@
 package com.CodeWithRishu.Video_Streaming_App.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.mail.internet.MimeMessage;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.authentication.ott.OneTimeToken;
 import org.springframework.security.web.authentication.ott.OneTimeTokenGenerationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerationSuccessHandler {
 
-    private ObjectMapper objectMapper;
-    private JavaMailSender mailSender;
-
-    public MagicLinkOttGenerationSuccessHandler() {
-    }
-
-    public MagicLinkOttGenerationSuccessHandler(ObjectMapper objectMapper, JavaMailSender mailSender) {
-        this.objectMapper = objectMapper;
-        this.mailSender = mailSender;
-    }
+    private final ObjectMapper objectMapper;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
+
+    @Value("${brevo.api.key}")
+    private String brevoApiKey;
 
     @Value("${ott.token.expiry.seconds}")
     private int magicLinkExpirySeconds;
@@ -73,9 +70,6 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
 
     private void sendMagicLinkEmail(String recipientEmail, String magicLink) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
             String htmlContent = String.format(
                     "<div style='font-family: Arial, sans-serif; max-width: 550px; margin: auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 8px;'>" +
                             "  <h2 style='color: #1a202c;'>Authentication Request</h2>" +
@@ -89,13 +83,31 @@ public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerat
                     magicLink, magicLinkExpirySeconds / 60, magicLink
             );
 
-            helper.setFrom(fromEmail, "VideoStream System");
-            helper.setTo(recipientEmail);
-            helper.setSubject("Sign in to your VideoStream Account");
-            helper.setText(htmlContent, true);
+            Map<String, Object> payload = Map.of(
+                    "sender", Map.of("name", "VideoStream System", "email", fromEmail),
+                    "to", List.of(Map.of("email", recipientEmail)),
+                    "subject", "Sign in to your VideoStream Account",
+                    "htmlContent", htmlContent
+            );
 
-            mailSender.send(message);
-            log.info("Magic link email delivered to: {}", recipientEmail);
+            String jsonBody = objectMapper.writeValueAsString(payload);
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                    .header("accept", "application/json")
+                    .header("api-key", brevoApiKey)
+                    .header("content-type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 201) {
+                log.info("Magic link email delivered to via Brevo HTTP API: {}", recipientEmail);
+            } else {
+                log.error("Brevo API rejected the request. Status: {}, Body: {}", response.statusCode(), response.body());
+            }
 
         } catch (Exception e) {
             log.error("Failed to send magic link email to {}: {}", recipientEmail, e.getMessage(), e);

@@ -6,19 +6,23 @@ import com.CodeWithRishu.Video_Streaming_App.entity.OtpVerification;
 import com.CodeWithRishu.Video_Streaming_App.entity.User;
 import com.CodeWithRishu.Video_Streaming_App.repository.OtpVerificationRepository;
 import com.CodeWithRishu.Video_Streaming_App.repository.UserRepository;
-import jakarta.mail.internet.MimeMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -28,7 +32,10 @@ public class OtpService {
 
     private final OtpVerificationRepository otpRepository;
     private final UserRepository userRepository;
-    private final JavaMailSender mailSender;
+    private final ObjectMapper objectMapper;
+
+    @Value("${brevo.api.key}")
+    private String brevoApiKey;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -73,7 +80,7 @@ public class OtpService {
                 log.info("OTP successfully dispatched via Brevo to {}", maskEmail(user.getEmail()));
                 return new OtpResponse(true, "OTP sent successfully to your registered email address", expiresAt);
             } else {
-                log.error("Brevo failed to dispatch SMTP packet.");
+                log.error("Brevo failed to dispatch HTTP request.");
                 return new OtpResponse(false, "Failed to send OTP email. Please try again.", null);
             }
 
@@ -105,7 +112,6 @@ public class OtpService {
             }
 
             if (verification.getOtp().equals(otpVerifyRequest.otp())) {
-                // Wipe previous verified sessions clean
                 otpRepository.deleteByUserAndVerifiedTrue(user);
                 otpRepository.flush();
 
@@ -147,9 +153,6 @@ public class OtpService {
 
     private boolean sendEmailOtp(String toEmail, String name, String otp) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
             String htmlContent = String.format(
                     "<div style='font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 25px; border: 1px solid #e0e0e0; border-radius: 8px;'>" +
                             "  <h2 style='color: #333;'>Security Verification</h2>" +
@@ -163,15 +166,34 @@ public class OtpService {
                     name, otp, (otpExpiration / 1000) / 60
             );
 
-            helper.setFrom(fromEmail, "VideoStream Security");
-            helper.setTo(toEmail);
-            helper.setSubject(otp + " is your VideoStream verification code");
-            helper.setText(htmlContent, true);
+            Map<String, Object> payload = Map.of(
+                    "sender", Map.of("name", "VideoStream Security", "email", fromEmail),
+                    "to", List.of(Map.of("email", toEmail)),
+                    "subject", otp + " is your VideoStream verification code",
+                    "htmlContent", htmlContent
+            );
 
-            mailSender.send(message);
-            return true;
+            String jsonBody = objectMapper.writeValueAsString(payload);
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                    .header("accept", "application/json")
+                    .header("api-key", brevoApiKey)
+                    .header("content-type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 201) {
+                return true;
+            } else {
+                log.error("Brevo API rejected the request. Status: {}, Body: {}", response.statusCode(), response.body());
+                return false;
+            }
         } catch (Exception e) {
-            log.error("SMTP relay transmission anomaly via Brevo failed to email: {}", toEmail, e);
+            log.error("HTTP relay transmission anomaly via Brevo failed to email: {}", toEmail, e);
             return false;
         }
     }

@@ -5,21 +5,24 @@ import com.CodeWithRishu.Video_Streaming_App.entity.OttToken;
 import com.CodeWithRishu.Video_Streaming_App.entity.User;
 import com.CodeWithRishu.Video_Streaming_App.repository.OttTokenRepository;
 import com.CodeWithRishu.Video_Streaming_App.repository.UserRepository;
-import jakarta.mail.internet.MimeMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.SecureRandom;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -31,7 +34,10 @@ public class OttService {
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
-    private final JavaMailSender mailSender;
+    private final ObjectMapper objectMapper;
+
+    @Value("${brevo.api.key}")
+    private String brevoApiKey;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -121,18 +127,34 @@ public class OttService {
 
     private void dispatchEmail(String recipientEmail, String subject, String htmlContent) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            Map<String, Object> payload = Map.of(
+                    "sender", Map.of("name", "VideoStream System", "email", fromEmail),
+                    "to", List.of(Map.of("email", recipientEmail)),
+                    "subject", subject,
+                    "htmlContent", htmlContent
+            );
 
-            helper.setFrom(fromEmail, "VideoStream System");
-            helper.setTo(recipientEmail);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true);
+            String jsonBody = objectMapper.writeValueAsString(payload);
 
-            mailSender.send(message);
-            log.info("Brevo engine successfully delivered authentication email context to: {}", recipientEmail);
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                    .header("accept", "application/json")
+                    .header("api-key", brevoApiKey)
+                    .header("content-type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 201) {
+                log.info("Brevo engine successfully delivered authentication email context to: {}", recipientEmail);
+            } else {
+                log.error("Brevo API rejected the request. Status: {}, Body: {}", response.statusCode(), response.body());
+                throw new RuntimeException("Failed to send system authentication notification.");
+            }
         } catch (Exception e) {
-            log.error("SMTP relay error pushing Brevo mail to {}: {}", recipientEmail, e.getMessage(), e);
+            log.error("HTTP relay error pushing Brevo mail to {}: {}", recipientEmail, e.getMessage(), e);
             throw new RuntimeException("Failed to send system authentication notification.", e);
         }
     }
