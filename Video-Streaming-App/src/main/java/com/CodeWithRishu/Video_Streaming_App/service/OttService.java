@@ -34,7 +34,8 @@ public class OttService {
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
-    private final ObjectMapper objectMapper;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${brevo.api.key}")
     private String brevoApiKey;

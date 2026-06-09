@@ -26,8 +26,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class MagicLinkOttGenerationSuccessHandler implements OneTimeTokenGenerationSuccessHandler {
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${spring.mail.username}")
     private String fromEmail;

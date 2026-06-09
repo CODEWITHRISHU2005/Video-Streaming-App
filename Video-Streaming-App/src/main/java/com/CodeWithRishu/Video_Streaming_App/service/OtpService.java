@@ -32,7 +32,7 @@ public class OtpService {
 
     private final OtpVerificationRepository otpRepository;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${brevo.api.key}")
     private String brevoApiKey;
