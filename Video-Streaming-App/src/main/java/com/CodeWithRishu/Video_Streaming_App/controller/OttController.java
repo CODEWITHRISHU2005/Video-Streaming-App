@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OttController {
     private final OttService ottService;
 
-    @PostMapping("/send")
+    @PostMapping("/sent")
     public ResponseEntity<String> sendOtt(@RequestParam String email) {
         ottService.generateAndSendMagicLink(email);
         return ResponseEntity.ok("Magic link sent to your email. Please check your inbox.");
