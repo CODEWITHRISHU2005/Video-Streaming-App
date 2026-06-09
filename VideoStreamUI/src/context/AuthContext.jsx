@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
             setUser(data);
             setIsAuthenticated(true);
             if (isFromUrl) {
-                toast.success("Successfully signed in!");
+                // toast.success("Successfully signed in!");
             }
           })
           .catch(() => {
@@ -107,7 +107,7 @@ export const AuthProvider = ({ children }) => {
         if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         setUser(userData);
         setIsAuthenticated(true);
-        toast.success('Successfully signed in!');
+        // toast.success('Successfully signed in!');
         return { success: true };
       } else {
         toast.error('Invalid response from server');
@@ -146,7 +146,7 @@ export const AuthProvider = ({ children }) => {
            // Fallback or non-blocking error
         }
 
-        toast.success('Successfully signed in with Magic Link!');
+        // toast.success('Successfully signed in with Magic Link!');
         return { success: true };
       } else {
         toast.error('Invalid response from server');
@@ -175,7 +175,7 @@ export const AuthProvider = ({ children }) => {
            console.error("Failed to fetch profile after token login", e);
         }
 
-        toast.success('Successfully signed in!');
+        // toast.success('Successfully signed in!');
         return { success: true };
       }
       return { success: false, error: 'No token provided' };
@@ -197,7 +197,7 @@ export const AuthProvider = ({ children }) => {
         if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         setUser(newUser);
         setIsAuthenticated(true);
-        toast.success('Account created successfully!');
+        // toast.success('Account created successfully!');
         return { success: true };
       } else {
         toast.error('Invalid response from server');
@@ -215,7 +215,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('refreshToken');
     setUser(null);
     setIsAuthenticated(false);
-    toast.success('Signed out successfully');
+    // toast.success('Signed out successfully');
   };
 
   const refreshUserProfile = async () => {

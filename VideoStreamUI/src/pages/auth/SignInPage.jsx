@@ -34,30 +34,12 @@ const SignInPage = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const accessToken = params.get('accessToken');
-    const refreshToken = params.get('refreshToken');
-    const token = params.get('token');
     const error = params.get('error');
 
     if (error) {
         toast.error("Login failed: " + error);
-        return;
     }
-
-    if (accessToken) {
-        loginWithTokens(accessToken, refreshToken).then((res) => {
-            if (res.success) {
-                navigate(from, { replace: true });
-            }
-        });
-    } else if (token) {
-        loginWithOtt(token).then((res) => {
-            if (res.success) {
-                navigate(from, { replace: true });
-            }
-        });
-    }
-  }, [location, loginWithTokens, loginWithOtt, navigate, from]);
+  }, [location]);
 
 
   // ----- Phone & OTP Handlers -----
