@@ -16,17 +16,9 @@ public class OttController {
     private final OttService ottService;
 
     @PostMapping("/send")
-    public ResponseEntity<String> sendOtt(
-            @RequestParam String email,
-            @RequestParam(defaultValue = "MAGIC_LINK") String authType) {
-
-        ottService.generateAndSendAuth(email, authType);
-
-        String responseMessage = "OTP".equalsIgnoreCase(authType)
-                ? "Verification code sent to your email. Please check your inbox."
-                : "Magic link sent to your email. Please check your inbox.";
-
-        return ResponseEntity.ok(responseMessage);
+    public ResponseEntity<String> sendOtt(@RequestParam String email) {
+        ottService.generateAndSendMagicLink(email);
+        return ResponseEntity.ok("Magic link sent to your email. Please check your inbox.");
     }
 
     @PostMapping("/login")

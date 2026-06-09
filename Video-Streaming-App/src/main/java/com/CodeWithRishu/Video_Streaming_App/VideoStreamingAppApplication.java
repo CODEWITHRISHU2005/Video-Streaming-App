@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
 @SpringBootApplication
-@CrossOrigin(origins = {"https://video-streaming-app-lac.vercel.app/","http://localhost:5173"})
+@CrossOrigin(origins = {"${APP_FRONTEND_URL}"})
 public class VideoStreamingAppApplication {
 
 	public static void main(String[] args) {

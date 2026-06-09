@@ -58,11 +58,7 @@ public class OtpService {
 
             String otp = generateOtp();
             Instant expiresAt = Instant.now().plusMillis(otpExpiration);
-            String phoneNumber = otpRequest.phone();
-
-            if (phoneNumber != null && !phoneNumber.startsWith("+91")) {
-                phoneNumber = "+91" + phoneNumber;
-            }
+            String phoneNumber = formatPhone(otpRequest.phone());
 
             OtpVerification verification = OtpVerification.builder()
                     .phone(phoneNumber)
@@ -99,7 +95,7 @@ public class OtpService {
                     .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + otpVerifyRequest.email()));
 
             Optional<OtpVerification> verificationOpt = otpRepository
-                    .findTopByPhoneAndVerifiedFalseOrderByCreatedAtDesc(otpVerifyRequest.phone());
+                    .findTopByPhoneAndVerifiedFalseOrderByCreatedAtDesc(formatPhone(otpVerifyRequest.phone()));
 
             if (verificationOpt.isEmpty()) {
                 return new OtpResponse(false, "No OTP tracking record found. Please request a new one.", null);
@@ -135,12 +131,19 @@ public class OtpService {
     @Transactional
     public OtpResponse resendOtp(OtpRequest otpRequest) {
         log.info("Invalidating old sessions to resend to: {}", maskEmail(otpRequest.email()));
-        otpRepository.deleteByPhoneAndVerifiedFalse(otpRequest.phone());
+        otpRepository.deleteByPhoneAndVerifiedFalse(formatPhone(otpRequest.phone()));
         return sendOtp(otpRequest);
     }
 
     public boolean isPhoneVerified(String phone) {
-        return otpRepository.findTopByPhoneAndVerifiedTrueOrderByCreatedAtDesc(phone).isPresent();
+        return otpRepository.findTopByPhoneAndVerifiedTrueOrderByCreatedAtDesc(formatPhone(phone)).isPresent();
+    }
+
+    private String formatPhone(String phone) {
+        if (phone != null && !phone.startsWith("+91")) {
+            return "+91" + phone;
+        }
+        return phone;
     }
 
     private String generateOtp() {
