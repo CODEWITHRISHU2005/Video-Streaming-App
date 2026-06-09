@@ -15,10 +15,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class OttController {
     private final OttService ottService;
 
-    @PostMapping("/sent")
-    public ResponseEntity<String> sendOtt(@RequestParam String email) {
-        ottService.generateMagicLink(email);
-        return ResponseEntity.ok("Magic link sent to your email. Please check your inbox.");
+    @PostMapping("/send")
+    public ResponseEntity<String> sendOtt(
+            @RequestParam String email,
+            @RequestParam(defaultValue = "MAGIC_LINK") String authType) {
+
+        ottService.generateAndSendAuth(email, authType);
+
+        String responseMessage = "OTP".equalsIgnoreCase(authType)
+                ? "Verification code sent to your email. Please check your inbox."
+                : "Magic link sent to your email. Please check your inbox.";
+
+        return ResponseEntity.ok(responseMessage);
     }
 
     @PostMapping("/login")
