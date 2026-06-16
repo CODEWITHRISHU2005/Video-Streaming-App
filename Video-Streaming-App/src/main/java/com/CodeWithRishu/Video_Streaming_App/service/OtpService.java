@@ -40,10 +40,10 @@ public class OtpService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
-    @Value("${app.otp.expiration-ms}")
+    @Value("${otp.expiration-ms}")
     private long otpExpiration;
 
-    @Value("${app.otp.length}")
+    @Value("${otp.length}")
     private int otpLength;
 
     private final SecureRandom secureRandom = new SecureRandom();
