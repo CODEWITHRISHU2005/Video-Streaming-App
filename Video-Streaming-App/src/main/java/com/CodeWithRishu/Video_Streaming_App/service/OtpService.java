@@ -208,7 +208,7 @@ public class OtpService {
         return email.substring(0, Math.min(index, 3)) + "********" + email.substring(index);
     }
 
-    @Scheduled(fixedRateString = "${app.otp.cleanup-rate}")
+    @Scheduled(fixedRateString = "${otp.cleanup-rate}")
     @Transactional
     public void cleanupExpiredOtp() {
         int deleted = otpRepository.deleteByExpiresAtBefore(Instant.now());
