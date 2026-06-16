@@ -40,10 +40,10 @@ public class OtpService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
-    @Value("${app.otp.expiration-ms:300000}")
+    @Value("${app.otp.expiration-ms}")
     private long otpExpiration;
 
-    @Value("${app.otp.length:6}")
+    @Value("${app.otp.length}")
     private int otpLength;
 
     private final SecureRandom secureRandom = new SecureRandom();
@@ -188,6 +188,7 @@ public class OtpService {
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            client.close();
 
             if (response.statusCode() == 201) {
                 return true;
