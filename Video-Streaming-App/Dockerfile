@@ -82,6 +82,8 @@ RUN adduser \
     appuser
 USER appuser
 
+WORKDIR /app
+
 # Copy the executable from the "package" stage.
 COPY --from=extract build/target/extracted/dependencies/ ./
 COPY --from=extract build/target/extracted/spring-boot-loader/ ./
