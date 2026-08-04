@@ -3,6 +3,7 @@ package com.CodeWithRishu.Video_Streaming_App.config;
 import com.CodeWithRishu.Video_Streaming_App.handler.JwtAuthFilter;
 import com.CodeWithRishu.Video_Streaming_App.handler.MagicLinkOttGenerationSuccessHandler;
 import com.CodeWithRishu.Video_Streaming_App.handler.OAuth2SuccessHandler;
+import com.CodeWithRishu.Video_Streaming_App.handler.RateLimitFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -41,6 +42,7 @@ public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final RateLimitFilter rateLimitFilter;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -51,10 +53,12 @@ public class SecurityConfig {
 
     public SecurityConfig(
             UserDetailsService userDetailsService,
-            @Lazy OAuth2SuccessHandler oAuth2SuccessHandler
+            @Lazy OAuth2SuccessHandler oAuth2SuccessHandler,
+            RateLimitFilter rateLimitFilter
     ) {
         this.userDetailsService = userDetailsService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+        this.rateLimitFilter = rateLimitFilter;
     }
 
     @Bean
@@ -112,6 +116,7 @@ public class SecurityConfig {
                         resp.getWriter().println(om.writeValueAsString(Map.of("message", e.getMessage())));
                     }
                 }))
+                .addFilterBefore(rateLimitFilter, JwtAuthFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
