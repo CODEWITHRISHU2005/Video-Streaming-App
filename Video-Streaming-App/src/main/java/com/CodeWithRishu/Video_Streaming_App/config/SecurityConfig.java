@@ -116,8 +116,8 @@ public class SecurityConfig {
                         resp.getWriter().println(om.writeValueAsString(Map.of("message", e.getMessage())));
                     }
                 }))
-                .addFilterBefore(rateLimitFilter, JwtAuthFilter.class)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitFilter, JwtAuthFilter.class);
         return http.build();
     }
 
