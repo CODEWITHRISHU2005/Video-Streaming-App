@@ -1,4 +1,4 @@
-package com.CodeWithRishu.Video_Streaming_App.handler;
+package com.CodeWithRishu.Video_Streaming_App.service;
 
 import com.CodeWithRishu.Video_Streaming_App.config.RateLimitProp;
 import io.github.bucket4j.Bandwidth;
